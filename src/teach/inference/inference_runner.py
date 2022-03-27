@@ -228,7 +228,8 @@ class InferenceRunner:
             json.dump(pred_actions, handle)
 
         er.simulator.dir_out = config.output_dir
-        output_file = os.path.join(config.output_dir, "inference__" + instance_id + ".json")
+        # output_file = os.path.join(config.output_dir, "inference__" + instance_id + ".json")
+        output_file = f"inference__{instance_id}.json"
         er.simulator.save(file_name=output_file)
 
         return instance_id, metrics
