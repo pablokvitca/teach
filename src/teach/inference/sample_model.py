@@ -48,13 +48,14 @@ class SampleModel(TeachModel):
         an object in a 10x10 pixel patch around the pixel indicated by the coordinate if the desired action can be
         performed on it, and executes the action in AI2-THOR.
         """
-        action = np.random.choice(all_agent_actions)
+        action = np.random.choice(all_agent_actions, p=[0.0, 0.9, *([0.1 / (len(all_agent_actions) - 2)] * (len(all_agent_actions) - 2))])
         obj_relative_coord = None
         if action in obj_interaction_actions:
             obj_relative_coord = [
                 np.random.uniform(high=0.99),
                 np.random.uniform(high=0.99),
             ]
+        logger.info(f"MODELSELECTED {action}")
         return action, obj_relative_coord
 
     def start_new_edh_instance(self, edh_instance, edh_history_images, edh_name=None):

@@ -9,8 +9,8 @@ from copy import deepcopy
 
 import lmdb
 import torch
-from alfred import constants
-from alfred.utils import helper_util
+from .. import constants
+from ..utils import helper_util
 from PIL import Image
 from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm

@@ -7,8 +7,8 @@ from importlib import import_module
 
 import numpy as np
 import torch
-from alfred import constants
-from alfred.utils import metric_util
+from .. import constants
+from ..utils import metric_util
 from torch.nn import functional as F
 
 from teach.logger import create_logger

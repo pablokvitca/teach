@@ -1,7 +1,7 @@
 import copy
 
 import revtok
-from alfred.utils import data_util
+from ..utils import data_util
 from vocab import Vocab
 
 

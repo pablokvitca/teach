@@ -1,5 +1,5 @@
-from alfred.data.zoo.base import BaseDataset
-from alfred.data.zoo.guides_edh import GuidesEdhDataset
+from ...data.zoo.base import BaseDataset
+from ...data.zoo.guides_edh import GuidesEdhDataset
 
 
 class GuidesSpeakerDataset(BaseDataset):

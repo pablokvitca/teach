@@ -8,14 +8,14 @@ from typing import List
 
 import numpy as np
 import torch
-from alfred import constants
-from alfred.data import GuidesEdhDataset
-from alfred.data.preprocessor import Preprocessor
-from alfred.utils import data_util, eval_util, model_util
 
 from teach.inference.actions import obj_interaction_actions
 from teach.inference.teach_model import TeachModel
 from teach.logger import create_logger
+from teach.modeling.et.alfred import constants
+from teach.modeling.et.alfred.data.preprocessor import Preprocessor
+from teach.modeling.et.alfred.data.zoo.guides_edh import GuidesEdhDataset
+from teach.modeling.et.alfred.utils import model_util, data_util, eval_util
 
 logger = create_logger(__name__)
 
@@ -32,6 +32,7 @@ class ETModel(TeachModel):
         :param num_processes: total number of processes launched
         :param model_args: extra CLI arguments to teach_eval will be passed along to the model
         """
+        logger.info(f"AAAHHH3")
         parser = argparse.ArgumentParser()
         parser.add_argument("--seed", type=int, default=1, help="Random seed")
         parser.add_argument("--device", type=str, default="cuda", help="cpu or cuda")
@@ -45,10 +46,12 @@ class ETModel(TeachModel):
             default=False,
             help="Specify this to ignore actions and image frames in EDH history",
         )
+        logger.info(f"AAAHHH4 {model_args}")
 
         args = parser.parse_args(model_args)
         args.dout = args.model_dir
         self.args = args
+        logger.info(f"AAAHHH5")
 
         logger.info("ETModel using args %s" % str(args))
         np.random.seed(args.seed)
@@ -59,7 +62,9 @@ class ETModel(TeachModel):
         self.extractor = None
         self.vocab = None
         self.preprocessor = None
+        logger.info(f"AAAHHH6")
         self.set_up_model(process_index)
+        logger.info(f"AAAHHH7")
 
         self.input_dict = None
         self.cur_edh_instance = None

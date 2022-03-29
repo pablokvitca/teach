@@ -6,8 +6,8 @@ import warnings
 import lmdb
 import numpy as np
 import torch
-from alfred import constants
-from alfred.utils import data_util
+from ... import constants
+from ...utils import data_util
 from torch.utils.data import Dataset as TorchDataset
 
 from teach.logger import create_logger

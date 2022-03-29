@@ -2,8 +2,8 @@ import logging
 import os
 
 import torch
-from alfred import constants
-from alfred.data.zoo.base import BaseDataset
+from ... import constants
+from ...data.zoo.base import BaseDataset
 
 from teach.logger import create_logger
 
