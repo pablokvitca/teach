@@ -90,15 +90,15 @@ class FirstModel(TeachModel):
         an object in a 10x10 pixel patch around the pixel indicated by the coordinate if the desired action can be
         performed on it, and executes the action in AI2-THOR.
         """
-        logger.info("Selecting next action...")
-        logger.info("\tTensorizing image...")
+        # logger.info("Selecting next action...")
+        # logger.info("\tTensorizing image...")
         img_tensor = self.tensorize_image(img)
-        logger.info("\tComputing actions scores with model...")
-        logger.info(f"\tINPUT IMAGE SHAPE {img_tensor.size()}")
-        logger.info(f"\tINPUT TEXT SHAPE {self.instance_text_encoded.size()}")
-        logger.info(f"\tINPUT PREV ACTIONS SHAPE {self.prev_actions.size()}")
+        # logger.info("\tComputing actions scores with model...")
+        # logger.info(f"\tINPUT IMAGE SHAPE {img_tensor.size()}")
+        # logger.info(f"\tINPUT TEXT SHAPE {self.instance_text_encoded.size()}")
+        # logger.info(f"\tINPUT PREV ACTIONS SHAPE {self.prev_actions.size()}")
         action_probs = self.model.forward(img_tensor, self.instance_text_encoded, self.prev_actions)
-        logger.info(f"\tOUTPUT SHAPE {action_probs.size()}")
+        # logger.info(f"\tOUTPUT SHAPE {action_probs.size()}")
         action, one_hot_action = FirstModel._get_action_from_probs(action_probs)
         obj_relative_coord = None
         if action in obj_interaction_actions:
@@ -107,7 +107,7 @@ class FirstModel(TeachModel):
                 np.random.uniform(high=0.99),
             ]
         self._add_to_prev_action(one_hot_action)
-        logger.info(f"SELECTED: {action}")
+        # logger.info(f"SELECTED: {action}")
         return action, obj_relative_coord
 
     def tensorize_image(self, img):
