@@ -5,11 +5,13 @@ import argparse
 from typing import List
 
 import numpy as np
+import torch
 
 from teach.inference.actions import all_agent_actions, obj_interaction_actions
 from teach.inference.teach_model import TeachModel
 from teach.logger import create_logger
 from teach.modeling.toast.NaiveMultimodalModel import NaiveMultiModalModel
+from teach.modeling.toast.utils import get_text_tokens_from_instance, encode_as_word_vectors, pad_list
 
 logger = create_logger(__name__)
 
@@ -31,11 +33,18 @@ class FirstModel(TeachModel):
         parser.add_argument("--seed", type=int, default=1, help="Random seed")
         args = parser.parse_args(model_args)
 
-        logger.info(f"SampleModel using seed {args.seed}")
+        logger.info(f"FirstModel using seed {args.seed}")
         np.random.seed(args.seed)
 
-        self.model = NaiveMultiModalModel()
-        self.prev_actions = []
+        self.text_pad_size = 50
+
+        self.prev_actions_pad_size = 50
+        self.total_actions = len(all_agent_actions)
+
+        self.model = NaiveMultiModalModel()  # TODO: params!
+        self.instance_text_encoded = None
+        self.observed_actions = 0
+        self.prev_actions = None
 
     def get_next_action(self, img, edh_instance, prev_action, img_name=None, edh_name=None):
         """
@@ -53,18 +62,33 @@ class FirstModel(TeachModel):
         performed on it, and executes the action in AI2-THOR.
         """
         img_tensor = self.tensorize_image(img)
-        text_form_instance = None  # TODO: get from instance
-        text_from_instance_tensor = self.tensorize_input_text(text_form_instance)
-        prev_actions_tensor = self.tensoze_prev_actions(self.prev_actions)
-        action_probs = self.model.forward(img_tensor, text_from_instance_tensor, prev_actions_tensor)
-        action = self.get_action_from_probs(action_probs)
+        action_probs = self.model.forward(img_tensor, self.instance_text_encoded, self.prev_actions)
+        action, one_hot_action = FirstModel._get_action_from_probs(action_probs)
         obj_relative_coord = None
         if action in obj_interaction_actions:
             obj_relative_coord = [
                 np.random.uniform(high=0.99),
                 np.random.uniform(high=0.99),
             ]
+        self._add_to_prev_action(one_hot_action)
         return action, obj_relative_coord
+
+    def tensorize_image(self, img):
+        pass  # TODO
+
+    @staticmethod
+    def _get_action_from_probs(probs):
+        best_index = torch.argmax(probs)
+        return all_agent_actions[best_index], best_index
+
+    def _add_to_prev_action(self, one_hot_action_index):
+        action_one_hot = torch.zeros(self.total_actions)
+        action_one_hot[one_hot_action_index] = 1
+        self.prev_actions[:, self.observed_actions] = action_one_hot
+        self.observed_actions += 1
+
+    def _prev_actions_tensor_padded(self):
+        return torch.zeros((self.total_actions, self.prev_actions_pad_size))
 
     def start_new_edh_instance(self, edh_instance, edh_history_images, edh_name=None):
         """
@@ -75,5 +99,9 @@ class FirstModel(TeachModel):
                                    edh_instance['driver_image_history'])
         :param edh_name: EDH instance file name
         """
-        self.prev_actions = []
+        self.observed_actions = 0
+        self.prev_actions = self._prev_actions_tensor_padded()
+        text_from_instance = get_text_tokens_from_instance(edh_instance)
+        text_from_instance = pad_list(text_from_instance, self.text_pad_size)
+        self.instance_text_encoded = encode_as_word_vectors(text_from_instance)
         return True
