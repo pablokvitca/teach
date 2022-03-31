@@ -30,3 +30,5 @@ pandoc
 six
 typing
 ConfigArgParse
+nltk
+gensim

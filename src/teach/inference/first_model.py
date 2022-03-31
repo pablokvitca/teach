@@ -82,9 +82,12 @@ class FirstModel(TeachModel):
         return all_agent_actions[best_index], best_index
 
     def _add_to_prev_action(self, one_hot_action_index):
+        place_at = min(self.observed_actions, self.prev_actions_pad_size - 1)
+        if self.observed_actions > self.prev_actions_pad_size:
+            self.prev_actions.roll(-1, dims=1)
         action_one_hot = torch.zeros(self.total_actions)
         action_one_hot[one_hot_action_index] = 1
-        self.prev_actions[:, self.observed_actions] = action_one_hot
+        self.prev_actions[:, place_at] = action_one_hot
         self.observed_actions += 1
 
     def _prev_actions_tensor_padded(self):
@@ -103,5 +106,5 @@ class FirstModel(TeachModel):
         self.prev_actions = self._prev_actions_tensor_padded()
         text_from_instance = get_text_tokens_from_instance(edh_instance)
         text_from_instance = pad_list(text_from_instance, self.text_pad_size)
-        self.instance_text_encoded = encode_as_word_vectors(text_from_instance)
+        self.instance_text_encoded = encode_as_word_vectors(None, text_from_instance)  # TODO: model?
         return True
