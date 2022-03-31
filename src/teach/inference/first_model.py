@@ -9,11 +9,12 @@ import numpy as np
 from teach.inference.actions import all_agent_actions, obj_interaction_actions
 from teach.inference.teach_model import TeachModel
 from teach.logger import create_logger
+from teach.modeling.toast.NaiveMultimodalModel import NaiveMultiModalModel
 
 logger = create_logger(__name__)
 
 
-class SampleModel(TeachModel):
+class FirstModel(TeachModel):
     """
     Sample implementation of TeachModel.
     Demonstrates usage of custom arguments as well as sample implementation of get_next_actions method
@@ -33,6 +34,9 @@ class SampleModel(TeachModel):
         logger.info(f"SampleModel using seed {args.seed}")
         np.random.seed(args.seed)
 
+        self.model = NaiveMultiModalModel()
+        self.prev_actions = []
+
     def get_next_action(self, img, edh_instance, prev_action, img_name=None, edh_name=None):
         """
         This method will be called at each timestep during inference to get the next predicted action from the model.
@@ -48,14 +52,18 @@ class SampleModel(TeachModel):
         an object in a 10x10 pixel patch around the pixel indicated by the coordinate if the desired action can be
         performed on it, and executes the action in AI2-THOR.
         """
-        action = np.random.choice(all_agent_actions)
+        img_tensor = self.tensorize_image(img)
+        text_form_instance = None  # TODO: get from instance
+        text_from_instance_tensor = self.tensorize_input_text(text_form_instance)
+        prev_actions_tensor = self.tensoze_prev_actions(self.prev_actions)
+        action_probs = self.model.forward(img_tensor, text_from_instance_tensor, prev_actions_tensor)
+        action = self.get_action_from_probs(action_probs)
         obj_relative_coord = None
         if action in obj_interaction_actions:
             obj_relative_coord = [
                 np.random.uniform(high=0.99),
                 np.random.uniform(high=0.99),
             ]
-        logger.info(f"MODELSELECTED {action}")
         return action, obj_relative_coord
 
     def start_new_edh_instance(self, edh_instance, edh_history_images, edh_name=None):
@@ -67,4 +75,5 @@ class SampleModel(TeachModel):
                                    edh_instance['driver_image_history'])
         :param edh_name: EDH instance file name
         """
-        return True # pass
+        self.prev_actions = []
+        return True
