@@ -10,8 +10,11 @@ import torch
 from teach.inference.actions import all_agent_actions, obj_interaction_actions
 from teach.inference.teach_model import TeachModel
 from teach.logger import create_logger
+from teach.modeling.et.alfred.nn.transforms import Transforms
 from teach.modeling.toast.NaiveMultimodalModel import NaiveMultiModalModel
 from teach.modeling.toast.utils import get_text_tokens_from_instance, encode_as_word_vectors, pad_list
+
+from gensim.models import KeyedVectors
 
 logger = create_logger(__name__)
 
@@ -29,26 +32,52 @@ class FirstModel(TeachModel):
         :param num_processes: total number of processes launched
         :param model_args: extra CLI arguments to teach_eval will be passed along to the model
         """
+        # logger.info("Initializing AgentModel...")
+        # logger.info("\tParsing Arguments...")
         parser = argparse.ArgumentParser()
         parser.add_argument("--seed", type=int, default=1, help="Random seed")
+        parser.add_argument("--w2v_path", type=str, required=True, help="path to folder w2v .gz")
         args = parser.parse_args(model_args)
 
-        logger.info(f"FirstModel using seed {args.seed}")
+        # logger.info(f"\tFirstModel using seed {args.seed}")
         np.random.seed(args.seed)
 
-        self.text_pad_size = 50
+        # logger.info("\tLoading image transform...")
+        self._img_transform = Transforms.get_transform("default")
 
-        self.prev_actions_pad_size = 50
+        self.text_pad_size = 100
+
+        self.prev_actions_pad_size = 100
         self.total_actions = len(all_agent_actions)
 
-        self.model = NaiveMultiModalModel()  # TODO: params!
+        # logger.info("\tLoading Word2Vec transform...")
+        self.w2v_model = KeyedVectors.load_word2vec_format(args.w2v_path, binary=True, limit=100000)
+
+        # logger.info("\tInitializing Naive Model...")
+        self.model = NaiveMultiModalModel(
+            [
+                {"in_channels": 3, "out_channels": 32, "kernel_size": 11, "stride": 3},
+                {"in_channels": 32, "out_channels": 64, "kernel_size": 7},
+                {"in_channels": 64, "out_channels": 8, "kernel_size": 5}
+            ],  # image_conv_kwargs
+            [(30752, 512), (512, 128), (128, 16)],  # image_hidden_layer_sizes
+            self.w2v_model.vector_size,  # text_word_vec_size
+            100,  # text_input_words
+            [128, 16],  # text_hidden_layer_sizes
+            self.prev_actions_pad_size * self.total_actions,  # prev_actions_input_size
+            [128, 32],  # prev_actions_hidden_layer_sizes
+            [64, 32],  # combination_hidden_layers_size
+            17  # output_layer_size
+        )
         self.instance_text_encoded = None
         self.observed_actions = 0
         self.prev_actions = None
 
+        # logger.info("Done!")
+
     def get_next_action(self, img, edh_instance, prev_action, img_name=None, edh_name=None):
         """
-        This method will be called at each timestep during inference to get the next predicted action from the model.
+        TODO
         :param img: PIL Image containing agent's egocentric image
         :param edh_instance: EDH instance
         :param prev_action: One of None or a dict with keys 'action' and 'obj_relative_coord' containing returned values
@@ -61,8 +90,15 @@ class FirstModel(TeachModel):
         an object in a 10x10 pixel patch around the pixel indicated by the coordinate if the desired action can be
         performed on it, and executes the action in AI2-THOR.
         """
+        logger.info("Selecting next action...")
+        logger.info("\tTensorizing image...")
         img_tensor = self.tensorize_image(img)
+        logger.info("\tComputing actions scores with model...")
+        logger.info(f"\tINPUT IMAGE SHAPE {img_tensor.size()}")
+        logger.info(f"\tINPUT TEXT SHAPE {self.instance_text_encoded.size()}")
+        logger.info(f"\tINPUT PREV ACTIONS SHAPE {self.prev_actions.size()}")
         action_probs = self.model.forward(img_tensor, self.instance_text_encoded, self.prev_actions)
+        logger.info(f"\tOUTPUT SHAPE {action_probs.size()}")
         action, one_hot_action = FirstModel._get_action_from_probs(action_probs)
         obj_relative_coord = None
         if action in obj_interaction_actions:
@@ -71,10 +107,11 @@ class FirstModel(TeachModel):
                 np.random.uniform(high=0.99),
             ]
         self._add_to_prev_action(one_hot_action)
+        logger.info(f"SELECTED: {action}")
         return action, obj_relative_coord
 
     def tensorize_image(self, img):
-        pass  # TODO
+        return self._img_transform(img)
 
     @staticmethod
     def _get_action_from_probs(probs):
@@ -102,9 +139,17 @@ class FirstModel(TeachModel):
                                    edh_instance['driver_image_history'])
         :param edh_name: EDH instance file name
         """
-        self.observed_actions = 0
-        self.prev_actions = self._prev_actions_tensor_padded()
-        text_from_instance = get_text_tokens_from_instance(edh_instance)
-        text_from_instance = pad_list(text_from_instance, self.text_pad_size)
-        self.instance_text_encoded = encode_as_word_vectors(None, text_from_instance)  # TODO: model?
-        return True
+        try:
+            # logger.info("Starting EDH instance...")
+            # logger.info("\tPreparing prev actions...")
+            self.observed_actions = 0
+            self.prev_actions = self._prev_actions_tensor_padded()
+            # logger.info("\tPreparing text vectors...")
+            text_from_instance = get_text_tokens_from_instance(edh_instance)
+            text_from_instance = pad_list(text_from_instance, self.text_pad_size)
+            self.instance_text_encoded = encode_as_word_vectors(self.w2v_model, text_from_instance)
+            # logger.info("Done!")
+            return True
+        except Exception as err:
+            logger.info(f"Could not start EDH instance: {err}")
+            return False

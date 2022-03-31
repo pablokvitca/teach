@@ -112,11 +112,11 @@ class InferenceRunner:
     @staticmethod
     def _run(process_index, files_to_process, config: InferenceRunnerConfig, er: EpisodeReplay):
         metrics_file = InferenceRunner._get_metrics_file_name_for_process(process_index, config.metrics_file)
-        logger.info(f"AAAHHH1 {metrics_file}")
+        # logger.info(f"AAAHHH1 {metrics_file}")
         metrics = dict()
 
         model = config.model_class(process_index, config.num_processes, model_args=config.model_args)
-        logger.info(f"AAAHHH2 {files_to_process}")
+        # logger.info(f"AAAHHH2 {files_to_process}")
         for file_index, instance_file in enumerate(files_to_process):
             try:
                 instance_id, instance_metrics = InferenceRunner._run_edh_instance(instance_file, config, model, er)
