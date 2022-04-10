@@ -1,10 +1,14 @@
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 from torch import nn, cat
+import torch.nn.functional as F
+import pytorch_lightning as pl
+from torch.optim import Adam
 
 from teach.logger import create_logger
 logger = create_logger(__name__)
 
 
-class NaiveMultiModalModel(nn.Module):
+class NaiveMultiModalModel(pl.LightningModule):
 
     def __init__(
             self,
@@ -19,7 +23,7 @@ class NaiveMultiModalModel(nn.Module):
             output_layer_size,
             activations="relu",
     ):
-        super(NaiveMultiModalModel, self).__init__()
+        super().__init__()
 
         activation = NaiveMultiModalModel._get_activation_layer(activations)
 
@@ -74,16 +78,31 @@ class NaiveMultiModalModel(nn.Module):
 
     @staticmethod
     def _get_activation_layer(activation="relu"):
-        return nn.ReLU  # TODO: activation layer
+        return {
+            "relu": nn.ReLU,
+            "tanh": nn.Tanh,
+            "sigmoid": nn.Sigmoid,
+            "softmax": nn.Softmax,
+        }[activation]
 
     def forward(self, current_image_tensor, text_tensor, previous_actions_tensor):
         image_conv_h = self.image_conv_input(current_image_tensor[None, ...].float())
         image_h = self.image_ffn_input(image_conv_h.flatten())
         text_h = self.text_input(text_tensor.flatten())
         prev_action_h = self.prev_actions_input(previous_actions_tensor.flatten())
-        logger.info(f"IMAGE H SHAPE: {image_h.size()}")
-        logger.info(f"TEXT H SHAPE: {text_h.size()}")
-        logger.info(f"PREV ACTION H SHAPE: {prev_action_h.size()}")
+        # logger.info(f"IMAGE H SHAPE: {image_h.size()}")
+        # logger.info(f"TEXT H SHAPE: {text_h.size()}")
+        # logger.info(f"PREV ACTION H SHAPE: {prev_action_h.size()}")
         comb_h = cat((image_h, text_h, prev_action_h), 0)
         z_out = self.comb(comb_h)
         return z_out
+
+    def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        x, y = batch
+        x_image, x_text, x_prev_actions = x
+        z = self.forward(x_image, x_text, x_prev_actions)
+        loss = F.cross_entropy(z, y)
+        return loss
+
+    def configure_optimizers(self, lr=0.001):
+        return Adam(self.parameters(), lr=lr)
