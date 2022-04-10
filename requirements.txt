@@ -32,3 +32,5 @@ typing
 ConfigArgParse
 nltk
 gensim
+jupyter
+pytorch-lightning
