@@ -32,6 +32,7 @@ class NaiveTEACHDataset(Dataset):
             x_text_pad_length: int,
             x_prev_action_pad_length: int,
             w2v_path: str = "/Volumes/Extreme SSD/GoogleNews-vectors-negative300.bin.gz"
+            # w2v_path: str = "/home/sethsclass/GoogleNews-vectors-negative300.bin.gz"
     ):
         self.data_dir = data_dir
         self.split_name = split_name
@@ -90,7 +91,7 @@ class NaiveTEACHDataset(Dataset):
 
     def _load_data(self):
         edh_dir = os.path.join(self.data_dir, 'edh_instances', self.split_name)
-        files = os.listdir(edh_dir)
+        files = sorted(os.listdir(edh_dir))
         data = []
         for i in trange(len(files)):
             file = files[i]
@@ -168,6 +169,7 @@ class NaiveDataModule(LightningDataModule):
                  x_text_pad_length: int = 50,
                  x_prev_action_pad_length: int = 500,
                  use_small_dataset: bool = False,
+                 num_workers: int = 8
                  ):
         super().__init__()
         self.data_dir = data_dir
@@ -187,6 +189,8 @@ class NaiveDataModule(LightningDataModule):
         self.valid_unseen_dataset = None
         self.test_seen_dataset = None
         self.test_unseen_dataset = None
+
+        self.num_workers = num_workers
 
     def load_dataset(self, split_name) -> Dataset:
         return NaiveTEACHDataset(
@@ -218,24 +222,24 @@ class NaiveDataModule(LightningDataModule):
     def train_dataloader(self):
         if self.train_dataset is None:
             raise ValueError("train dataset is not loaded")
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def val_dataloader(self):
         if self.valid_seen_dataset is None:
             raise ValueError("valid seen dataset is not loaded")
-        return DataLoader(self.valid_seen_dataset, batch_size=self.batch_size)
+        return DataLoader(self.valid_seen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def val_unseen_dataloader(self):
         if self.valid_unseen_dataset is None:
             raise ValueError("valid unseen dataset is not loaded")
-        return DataLoader(self.valid_unseen_dataset, batch_size=self.batch_size)
+        return DataLoader(self.valid_unseen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self):
         if self.test_seen_dataset is None:
             raise ValueError("test seen dataset is not loaded")
-        return DataLoader(self.test_seen_dataset, batch_size=self.batch_size)
+        return DataLoader(self.test_seen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_unseen_dataloader(self):
         if self.test_unseen_dataset is None:
             raise ValueError("test unseen dataset is not loaded")
-        return DataLoader(self.test_unseen_dataset, batch_size=self.batch_size)
+        return DataLoader(self.test_unseen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)

@@ -40,8 +40,8 @@ def load_or_create_model(model_load_path):
 
 def main():
     model_load_path = None
-    #data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
-    data_folder_path = "/home/sethsclass/teach-dataset/"
+    data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
+    # data_folder_path = "/home/sethsclass/teach-dataset/"
 
     logger.info(f"loading from path: {data_folder_path}")
 
@@ -62,8 +62,13 @@ def main():
     model = load_or_create_model(model_load_path)
     logger.info("model loaded")
 
-    trainer = Trainer(accelerator="cpu")
+    trainer = Trainer(accelerator="cpu", auto_lr_find=True)
+    # trainer = Trainer(accelerator="gpu", gpus=[0], auto_lr_find=True)
     logger.info("trainer created")
+
+    logger.info("Tuning training hyperparameters")
+    trainer.tune(model)
+    logger.info("Trainer tuned")
 
     logger.info("Fitting model...")
     trainer.fit(

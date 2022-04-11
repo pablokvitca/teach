@@ -101,8 +101,8 @@ class NaiveMultiModalModel(pl.LightningModule):
         x, y = batch
         x_text, x_image, x_prev_actions = x["text"], x["cur_image"], x["prev_actions"]
         z = self.forward(x_image, x_text, x_prev_actions)
-        loss = F.cross_entropy(z, y)
+        loss = F.cross_entropy(z, y.argmax(dim=1))
         return loss
 
-    def configure_optimizers(self, lr=0.001):
-        return Adam(self.parameters(), lr=lr)
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=self.learning_rate)
