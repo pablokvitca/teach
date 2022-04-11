@@ -6,9 +6,9 @@ pydub==0.24.1
 python-Levenshtein
 tqdm
 pillow
-pydantic==1.8.2
+pydantic==1.9.0
 numpy
-pandas
+pandas==1.4.2
 opencv-python
 vocab
 revtok
@@ -20,9 +20,9 @@ lmdb
 gtimer
 filelock
 termcolor
-torch==1.7.1
-torchvision==0.8.2
-tensorboardX==1.8
+torch==1.11.0
+torchvision==0.12.0
+tensorboardX==2.5
 Flask
 flask_restful
 future
