@@ -203,12 +203,12 @@ class NaiveDataModule(LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         logger.info(f"Loading dataset for stage {stage}")
-        if stage == "train" or stage is None:
+        if stage in ["train" or "fit"] or stage is None:
             split_name = 'train' if not self.use_small_dataset else 'train_small'
             self.train_dataset = self.load_dataset(split_name)
-        if stage == "valid" or stage is None:
+        if stage in ["val", "valid", "validate"] or stage is None:
             self.valid_seen_dataset = self.load_dataset('valid_seen')
-        if stage == "valid_unseen" or stage is None:
+        if stage in ["val_unseen", "valid_unseen", "validate_unseen"] or stage is None:
             self.valid_unseen_dataset = self.load_dataset('valid_unseen')
         if stage == "test" or stage is None:
             self.test_seen_dataset = self.load_dataset('test_seen')

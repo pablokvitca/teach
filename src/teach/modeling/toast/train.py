@@ -52,7 +52,7 @@ def main():
         x_prev_action_pad_length=100,
         use_small_dataset=True
     )
-    naive_datamodule.setup("train")
+    naive_datamodule.setup("fit")
     naive_datamodule.setup("valid")
     logger.info("train and valid have been setup")
     # train_dataloader = naive_datamodule.train_dataloader()
