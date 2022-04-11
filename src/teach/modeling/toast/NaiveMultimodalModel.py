@@ -25,6 +25,8 @@ class NaiveMultiModalModel(pl.LightningModule):
     ):
         super().__init__()
 
+        self.learning_rate = 0.001
+
         activation = NaiveMultiModalModel._get_activation_layer(activations)
 
         image_conv_seq_layers = []

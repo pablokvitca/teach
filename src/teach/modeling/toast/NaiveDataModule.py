@@ -31,8 +31,8 @@ class NaiveTEACHDataset(Dataset):
             x_prev_action_seq: bool,
             x_text_pad_length: int,
             x_prev_action_pad_length: int,
-            w2v_path: str = "/Volumes/Extreme SSD/GoogleNews-vectors-negative300.bin.gz"
-            # w2v_path: str = "/home/sethsclass/GoogleNews-vectors-negative300.bin.gz"
+            # w2v_path: str = "/Volumes/Extreme SSD/GoogleNews-vectors-negative300.bin.gz"
+            w2v_path: str = "/home/sethsclass/GoogleNews-vectors-negative300.bin.gz"
     ):
         self.data_dir = data_dir
         self.split_name = split_name

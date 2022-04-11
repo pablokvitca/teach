@@ -38,10 +38,10 @@ def load_or_create_model(model_load_path):
     )
 
 
-def main():
+def main(data_folder_path, wv2_path, model_checkpoints_path):
     model_load_path = None
-    data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
-    # data_folder_path = "/home/sethsclass/teach-dataset/"
+    # data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
+    data_folder_path = "/home/sethsclass/teach-dataset/"
 
     logger.info(f"loading from path: {data_folder_path}")
 
@@ -53,22 +53,26 @@ def main():
         use_small_dataset=True
     )
     naive_datamodule.setup("fit")
-    naive_datamodule.setup("valid")
+    naive_datamodule.setup("validate")
     logger.info("train and valid have been setup")
-    # train_dataloader = naive_datamodule.train_dataloader()
-    # valid_seen_dataloader = naive_datamodule.val_dataloader()
 
     # create/load model
     model = load_or_create_model(model_load_path)
     logger.info("model loaded")
 
-    trainer = Trainer(accelerator="cpu", auto_lr_find=True)
-    # trainer = Trainer(accelerator="gpu", gpus=[0], auto_lr_find=True)
+    checkpoint_callback = ModelCheckpoint(dirpath="my/path/", save_top_k=2, monitor="val_loss")
+    # trainer = Trainer(accelerator="cpu", auto_lr_find=True)
+    trainer = Trainer(
+            accelerator="gpu", gpus=[0], 
+            auto_lr_find=True,
+            track_grad_norm=2
+    )
+    
     logger.info("trainer created")
 
     logger.info("Tuning training hyperparameters")
-    trainer.tune(model)
-    logger.info("Trainer tuned")
+    trainer.tune(model, datamodule=naive_datamodule)
+    logger.info(f"Trainer tuned. LR: {model.learning_rate}")
 
     logger.info("Fitting model...")
     trainer.fit(
@@ -80,4 +84,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    assert len(sys.argv) == 3
+    data_folder_path, wv2_path, model_checkpoints_path = sys.argv.split("")
+    main(data_folder_path, wv2_path, model_checkpoints_path)
