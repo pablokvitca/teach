@@ -50,9 +50,9 @@ def main():
         use_small_dataset=True
     )
     naive_datamodule.setup("train")
-    train_dataloader = naive_datamodule.train_dataloader()
     naive_datamodule.setup("valid")
-    valid_seen_dataloader = naive_datamodule.val_dataloader()
+    # train_dataloader = naive_datamodule.train_dataloader()
+    # valid_seen_dataloader = naive_datamodule.val_dataloader()
 
     # create/load model
     model = load_or_create_model(model_load_path)
@@ -61,8 +61,7 @@ def main():
 
     trainer.fit(
         model=model,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=valid_seen_dataloader,
+        datamodule=naive_datamodule
     )
 
 

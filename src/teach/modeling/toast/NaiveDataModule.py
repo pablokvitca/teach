@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Optional
 
@@ -6,15 +7,16 @@ import torch
 from PIL import Image
 from gensim.models import KeyedVectors
 from pytorch_lightning import LightningDataModule
-from torch.autograd import Variable
 from torch.utils.data import Dataset, DataLoader
-from torchvision.transforms import ToTensor
 from tqdm import trange
 
 from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
+from teach.logger import create_logger
 from teach.modeling.et.alfred.nn.transforms import Transforms
 from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, encode_as_word_vectors
+
+logger = create_logger(__name__, level=logging.INFO)
 
 
 class NaiveTEACHDataset(Dataset):
@@ -200,6 +202,7 @@ class NaiveDataModule(LightningDataModule):
         )
 
     def setup(self, stage: Optional[str] = None):
+        logger.info(f"Loading dataset for stage {stage}")
         if stage == "train" or stage is None:
             split_name = 'train' if not self.use_small_dataset else 'train_small'
             self.train_dataset = self.load_dataset(split_name)
