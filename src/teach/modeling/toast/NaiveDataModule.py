@@ -89,12 +89,12 @@ class NaiveTEACHDataset(Dataset):
         return None
 
     def _load_data(self):
-        edh_dir = f"{self.data_dir}/edh_instances/{self.split_name}"
+        edh_dir = os.path.join(self.data_dir, 'edh_instances', self.split_name)
         files = os.listdir(edh_dir)
         data = []
         for i in trange(len(files)):
             file = files[i]
-            with open(f"{edh_dir}/{file}") as f:
+            with open(os.path.join(edh_dir, file)) as f:
                 edh_instance = json.load(f)
                 if self.include_x_test:
                     text_from_instance = get_text_tokens_from_instance(edh_instance)
