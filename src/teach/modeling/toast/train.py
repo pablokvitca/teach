@@ -1,43 +1,69 @@
 import logging
 
+from pytorch_lightning import Trainer
+
+from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
+from teach.modeling.toast.NaiveDataModule import NaiveDataModule
+from teach.modeling.toast.NaiveMultimodalModel import NaiveMultiModalModel
 
 logger = create_logger(__name__, level=logging.INFO)
 
-def load_data(data_folder_path, data_splits):
-    pass
 
-def init_data_loaders(datasets):
-    pass
+def does_model_exist(model_load_path):
+    return False  # TODO: implement
 
-def main():
-    # TODO: load parameters
-    model_load_path = None
-    data_folder_path = None
-    data_splits = ("train", "valid_seen", "valid_unseen")
 
-    # create/load model
+def load_or_create_model(model_load_path):
+    # TODO: implement loading
     if model_load_path is not None:
         if does_model_exist(model_load_path):
             logger.info(f"Loading model from {model_load_path}.")
         else:
             logger.info(f"Could not find model to load at {model_load_path}. Creating new model.")
-    model = load_or_create_model(model_load_path)
-
-    # TODO: load data
-    train_dataset, valid_seen_dataset, valid_unseen_dataset = load_data(data_folder_path, data_splits)
-    # TODO: encode data - init dataloaders that will encode the data as needed?
-    train_dataloader, valid_dataloader, valid_unseen_dataloader = init_data_loaders(
-        (train_dataset, valid_seen_dataset, valid_unseen_dataset)
+    return NaiveMultiModalModel(
+        [
+            {"in_channels": 3, "out_channels": 32, "kernel_size": 11, "stride": 3},
+            {"in_channels": 32, "out_channels": 64, "kernel_size": 7},
+            {"in_channels": 64, "out_channels": 8, "kernel_size": 5}
+        ],  # image_conv_kwargs
+        [(30752, 512), (512, 128), (128, 16)],  # image_hidden_layer_sizes
+        300,  # text_word_vec_size
+        100,  # text_input_words
+        [128, 16],  # text_hidden_layer_sizes
+        100 * len(all_agent_actions),  # prev_actions_input_size
+        [128, 32],  # prev_actions_hidden_layer_sizes
+        [64, 32],  # combination_hidden_layers_size
+        len(all_agent_actions)  # output_layer_size
     )
 
-    # TODO: run epoch
-    for epoch in trange(epochs):
-        train(model, )
 
-    # TODO: run validation
-    # TODO: save model if validation better?
-    pass
+def main():
+    model_load_path = None
+    data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
+
+    naive_datamodule = NaiveDataModule(
+        data_folder_path,
+        32,  # batch_size,
+        x_text_pad_length=100,
+        x_prev_action_pad_length=100,
+        use_small_dataset=True
+    )
+    naive_datamodule.setup("train")
+    train_dataloader = naive_datamodule.train_dataloader()
+    naive_datamodule.setup("valid")
+    valid_seen_dataloader = naive_datamodule.val_dataloader()
+
+    # create/load model
+    model = load_or_create_model(model_load_path)
+
+    trainer = Trainer(accelerator="cpu")
+
+    trainer.fit(
+        model=model,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=valid_seen_dataloader,
+    )
 
 
 if __name__ == "__main__":

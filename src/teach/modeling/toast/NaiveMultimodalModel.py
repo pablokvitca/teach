@@ -86,20 +86,20 @@ class NaiveMultiModalModel(pl.LightningModule):
         }[activation]
 
     def forward(self, current_image_tensor, text_tensor, previous_actions_tensor):
-        image_conv_h = self.image_conv_input(current_image_tensor[None, ...].float())
-        image_h = self.image_ffn_input(image_conv_h.flatten())
-        text_h = self.text_input(text_tensor.flatten())
-        prev_action_h = self.prev_actions_input(previous_actions_tensor.flatten())
+        image_conv_h = self.image_conv_input(current_image_tensor)
+        image_h = self.image_ffn_input(image_conv_h.flatten(start_dim=1))
+        text_h = self.text_input(text_tensor.flatten(start_dim=1))
+        prev_action_h = self.prev_actions_input(previous_actions_tensor.flatten(start_dim=1))
         # logger.info(f"IMAGE H SHAPE: {image_h.size()}")
         # logger.info(f"TEXT H SHAPE: {text_h.size()}")
         # logger.info(f"PREV ACTION H SHAPE: {prev_action_h.size()}")
-        comb_h = cat((image_h, text_h, prev_action_h), 0)
+        comb_h = cat((image_h, text_h, prev_action_h), dim=1)
         z_out = self.comb(comb_h)
         return z_out
 
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y = batch
-        x_image, x_text, x_prev_actions = x
+        x_text, x_image, x_prev_actions = x["text"], x["cur_image"], x["prev_actions"]
         z = self.forward(x_image, x_text, x_prev_actions)
         loss = F.cross_entropy(z, y)
         return loss
