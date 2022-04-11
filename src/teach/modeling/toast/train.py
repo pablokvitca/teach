@@ -62,13 +62,17 @@ def main():
     model = load_or_create_model(model_load_path)
     logger.info("model loaded")
 
-    trainer = Trainer(accelerator="cpu", auto_lr_find=True)
-    # trainer = Trainer(accelerator="gpu", gpus=[0], auto_lr_find=True)
+    trainer = Trainer(
+        accelerator="cpu",
+        # accelerator="gpu", gpus=[0],
+        auto_lr_find=True,
+        track_grad_norm=2
+    )
     logger.info("trainer created")
 
     logger.info("Tuning training hyperparameters")
-    trainer.tune(model)
-    logger.info("Trainer tuned")
+    trainer.tune(model, datamodule=naive_datamodule)
+    logger.info(f"Trainer tuned. LR: {model.learning_rate}")
 
     logger.info("Fitting model...")
     trainer.fit(
