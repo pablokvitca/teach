@@ -40,7 +40,10 @@ def load_or_create_model(model_load_path):
 
 def main():
     model_load_path = None
-    data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
+    #data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
+    data_folder_path = "/home/sethsclass/teach-dataset/"
+
+    logger.info(f"loading from path: {data_folder_path}")
 
     naive_datamodule = NaiveDataModule(
         data_folder_path,
@@ -51,18 +54,24 @@ def main():
     )
     naive_datamodule.setup("train")
     naive_datamodule.setup("valid")
+    logger.info("train and valid have been setup")
     # train_dataloader = naive_datamodule.train_dataloader()
     # valid_seen_dataloader = naive_datamodule.val_dataloader()
 
     # create/load model
     model = load_or_create_model(model_load_path)
+    logger.info("model loaded")
 
     trainer = Trainer(accelerator="cpu")
+    logger.info("trainer created")
 
+    logger.info("Fitting model...")
     trainer.fit(
         model=model,
         datamodule=naive_datamodule
     )
+
+    logger.info("Done!")
 
 
 if __name__ == "__main__":
