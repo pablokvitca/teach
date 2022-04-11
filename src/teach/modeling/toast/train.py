@@ -61,13 +61,12 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
     logger.info("model loaded")
 
     checkpoint_callback = ModelCheckpoint(dirpath="my/path/", save_top_k=2, monitor="val_loss")
-    # trainer = Trainer(accelerator="cpu", auto_lr_find=True)
     trainer = Trainer(
-            accelerator="gpu", gpus=[0], 
-            auto_lr_find=True,
-            track_grad_norm=2
+        accelerator="cpu",
+        # accelerator="gpu", gpus=[0],
+        auto_lr_find=True,
+        track_grad_norm=2
     )
-    
     logger.info("trainer created")
 
     logger.info("Tuning training hyperparameters")
