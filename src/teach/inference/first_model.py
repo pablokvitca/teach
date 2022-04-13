@@ -37,6 +37,7 @@ class FirstModel(TeachModel):
         parser = argparse.ArgumentParser()
         parser.add_argument("--seed", type=int, default=1, help="Random seed")
         parser.add_argument("--w2v_path", type=str, required=True, help="path to folder w2v .gz")
+        parser.add_argument("--model_path", type=str, required=True, help="path to folder trained model")
         args = parser.parse_args(model_args)
 
         # logger.info(f"\tFirstModel using seed {args.seed}")
@@ -54,21 +55,7 @@ class FirstModel(TeachModel):
         self.w2v_model = KeyedVectors.load_word2vec_format(args.w2v_path, binary=True, limit=100000)
 
         # logger.info("\tInitializing Naive Model...")
-        self.model = NaiveMultiModalModel(
-            [
-                {"in_channels": 3, "out_channels": 32, "kernel_size": 11, "stride": 3},
-                {"in_channels": 32, "out_channels": 64, "kernel_size": 7},
-                {"in_channels": 64, "out_channels": 8, "kernel_size": 5}
-            ],  # image_conv_kwargs
-            [(30752, 512), (512, 128), (128, 16)],  # image_hidden_layer_sizes
-            self.w2v_model.vector_size,  # text_word_vec_size
-            100,  # text_input_words
-            [128, 16],  # text_hidden_layer_sizes
-            self.prev_actions_pad_size * self.total_actions,  # prev_actions_input_size
-            [128, 32],  # prev_actions_hidden_layer_sizes
-            [64, 32],  # combination_hidden_layers_size
-            17  # output_layer_size
-        )
+        self.model = NaiveMultiModalModel.load_from_checkpoint(args.model_path)
         self.instance_text_encoded = None
         self.observed_actions = 0
         self.prev_actions = None
