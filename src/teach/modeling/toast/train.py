@@ -52,7 +52,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
         512,  # batch_size,
         x_text_pad_length=100,
         x_prev_action_pad_length=100,
-        use_small_dataset=False
+        use_small_dataset=True
     )
     naive_datamodule.setup("fit")
     naive_datamodule.setup("validate")
@@ -69,9 +69,11 @@ def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
         auto_lr_find=True,
         # auto_scale_batch_size=True,
         track_grad_norm=2,
+        gradient_clip_val=1.0,
         callbacks=[checkpoint_callback],
         max_epochs=100,
-        num_sanity_val_steps=3
+        num_sanity_val_steps=3,
+        detect_anomaly=True,
     )
     logger.info("trainer created")
 
