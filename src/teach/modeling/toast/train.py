@@ -70,11 +70,11 @@ def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
         # auto_scale_batch_size=True,
         track_grad_norm=2,
         gradient_clip_val=0.5,
+        gradient_clip_algorithm='value',
         callbacks=[checkpoint_callback],
         max_epochs=100,
         num_sanity_val_steps=3,
         detect_anomaly=True,
-        precision=64,
     )
     logger.info("trainer created")
 
