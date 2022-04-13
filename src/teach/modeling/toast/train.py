@@ -17,12 +17,13 @@ def does_model_exist(model_load_path):
     return os.path.exists(model_load_path)
 
 
-def load_or_create_model(model_load_path):
-    if model_load_path is not None and does_model_exist(model_load_path):
-        logger.info(f"Loading model from {model_load_path}.")
-        return NaiveMultiModalModel.load_from_checkpoint(model_load_path)
+def load_or_create_model(model_load_path, model_load_name):
+    path = os.path.join(model_load_path or '', model_load_name)
+    if model_load_path is not None and does_model_exist(path):
+        logger.info(f"Loading model from {path}.")
+        return NaiveMultiModalModel.load_from_checkpoint(path)
     else:
-        logger.info(f"Could not find model to load at {model_load_path}. Creating new model.")
+        logger.info(f"Could not find model to load at {path}. Creating new model.")
         return NaiveMultiModalModel(
             [
                 {"in_channels": 3, "out_channels": 32, "kernel_size": 11, "stride": 3},
@@ -40,10 +41,10 @@ def load_or_create_model(model_load_path):
         )
 
 
-def main(data_folder_path, wv2_path, model_checkpoints_path):
+def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
     logger.info(f"loading from path: {data_folder_path}")
     logger.info(f"Using gensim embeddings from {wv2_path}")
-    logger.info(f"Saving/loading model checkpoints to/from {model_checkpoints_path}")
+    logger.info(f"Saving/loading model checkpoints to/from {model_checkpoints_path} (model_load_name: {model_load_name})")
 
     naive_datamodule = NaiveDataModule(
         data_folder_path,
@@ -58,7 +59,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
     logger.info("train and valid have been setup")
 
     # create/load model
-    model = load_or_create_model(model_checkpoints_path)
+    model = load_or_create_model(model_checkpoints_path, model_load_name)
     logger.info("model loaded")
 
     checkpoint_callback = ModelCheckpoint(dirpath=model_checkpoints_path, save_top_k=3, monitor="val_loss")
@@ -88,6 +89,6 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 4
-    data_folder_path, wv2_path, model_checkpoints_path = sys.argv[1:]
-    main(data_folder_path, wv2_path, model_checkpoints_path)
+    assert len(sys.argv) == 5
+    data_folder_path, wv2_path, model_checkpoints_path, model_load_name = sys.argv[1:]
+    main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name)
