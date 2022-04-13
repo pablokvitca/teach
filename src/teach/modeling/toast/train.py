@@ -74,6 +74,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
         max_epochs=100,
         num_sanity_val_steps=3,
         detect_anomaly=True,
+        precision=64,
     )
     logger.info("trainer created")
 
