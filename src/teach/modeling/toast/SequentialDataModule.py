@@ -19,7 +19,7 @@ from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, 
 logger = create_logger(__name__, level=logging.INFO)
 
 
-class NaiveTEACHDataset(Dataset):
+class SequentialTEACHDataset(Dataset):
     def __init__(
             self,
             data_dir: str,
@@ -28,20 +28,12 @@ class NaiveTEACHDataset(Dataset):
             include_x_test: bool,
             include_x_cur_image: bool,
             include_x_prev_actions: bool,
-            x_test_seq: bool,
-            x_prev_action_seq: bool,
-            x_text_pad_length: int,
-            x_prev_action_pad_length: int,
     ):
         self.data_dir = data_dir
         self.split_name = split_name
         self.include_x_test = include_x_test
         self.include_x_cur_image = include_x_cur_image
         self.include_x_prev_actions = include_x_prev_actions
-        self.x_test_seq = x_test_seq
-        self.x_prev_action_seq = x_prev_action_seq
-        self.x_text_pad_length = x_text_pad_length
-        self.x_prev_action_pad_length = x_prev_action_pad_length
 
         self.w2v_model = KeyedVectors.load_word2vec_format(
             w2v_path, binary=True, limit=100000
@@ -62,16 +54,6 @@ class NaiveTEACHDataset(Dataset):
 
     def action_id_to_one_hot(self, action_id):
         return self._onehot_action_tensors[action_id]
-
-    def prev_actions_list_to_matrix(self, prev_actions):
-        prev_actions_mat = torch.zeros((len(all_agent_actions), self.x_prev_action_pad_length))
-
-        prev_actions = prev_actions[-self.x_prev_action_pad_length:]
-
-        for idx, prev_action in enumerate(prev_actions):
-            prev_actions_mat[:, idx] = prev_action
-
-        return prev_actions_mat
 
     def tensorize_image(self, img):
         return self._img_transform(img)
@@ -98,7 +80,6 @@ class NaiveTEACHDataset(Dataset):
                 edh_instance = json.load(f)
                 if self.include_x_test:
                     text_from_instance = get_text_tokens_from_instance(edh_instance)
-                    text_from_instance = pad_list(text_from_instance, self.x_text_pad_length)
                     instance_text_encoded = encode_as_word_vectors(self.w2v_model, text_from_instance)
 
                 prev_actions = []
@@ -117,7 +98,7 @@ class NaiveTEACHDataset(Dataset):
                                 action_onehot = self.action_id_to_one_hot(action['action_id'])
                                 prev_actions.append(action_onehot)
                                 observed_actions += 1
-                                instance_prev_actions = self.prev_actions_list_to_matrix(prev_actions)
+                                instance_prev_actions = prev_actions.copy()
 
                             x = {
                                 "text": instance_text_encoded,
@@ -137,12 +118,12 @@ class NaiveTEACHDataset(Dataset):
         return {"text": x["text"], "cur_image": x_cur_img, "prev_actions": x["prev_actions"]}, y
 
 
-class NaiveDataModule(LightningDataModule):
+class SequentialDataModule(LightningDataModule):
     """
     This module can be configured to preprocess that 3 modes of data in different ways, this is done *before* feeding
     to an actual model.
     This module is meant to have a "naive" representation of the output, where the sequence nature of the Y is ignored,
-    this is meant for testing and as a baseline. Therefore the module loads the episodes from the dataset and splits
+    this is meant for testing and as a baseline. Therefor the module loads the episodes from the dataset and splits
     them into separate data instances where each X is a tuple with:
         - x_text, the full text for the episode, vectorized to tensors
         - x_cur_image, the image of the agent before the action is selected, as 3D tensors (width, height, channel)
@@ -153,8 +134,8 @@ class NaiveDataModule(LightningDataModule):
         - `include_x_text`
         - `include_x_cur_image`
         - `include_x_prev_actions`
-    Uses padding for the sequential data models, with a PADDED tensor matrix, the PAD size for each input can be
-    configured using the arguments `x_text_pad_length` and `x_prev_action_pad_length`.
+
+    This uses sequences for text and prev actions.
     """
     def __init__(self,
                  data_dir: str,
@@ -163,10 +144,6 @@ class NaiveDataModule(LightningDataModule):
                  include_x_text: bool = True,
                  include_x_cur_image: bool = True,
                  include_x_prev_actions: bool = True,
-                 x_test_seq: bool = False,
-                 x_prev_action_seq: bool = False,
-                 x_text_pad_length: int = 50,
-                 x_prev_action_pad_length: int = 500,
                  use_small_dataset: bool = False,
                  num_workers: int = 8,
                  ):
@@ -177,10 +154,6 @@ class NaiveDataModule(LightningDataModule):
         self.include_x_text = include_x_text
         self.include_x_cur_image = include_x_cur_image
         self.include_x_prev_actions = include_x_prev_actions
-        self.x_test_seq = x_test_seq
-        self.x_prev_action_seq = x_prev_action_seq
-        self.x_text_pad_length = x_text_pad_length
-        self.x_prev_action_pad_length = x_prev_action_pad_length
 
         self.use_small_dataset = use_small_dataset
 
@@ -193,17 +166,13 @@ class NaiveDataModule(LightningDataModule):
         self.num_workers = num_workers
 
     def load_dataset(self, split_name) -> Dataset:
-        return NaiveTEACHDataset(
+        return SequentialTEACHDataset(
             self.data_dir,
             self.wv2_path,
             split_name,
             self.include_x_text,
             self.include_x_cur_image,
             self.include_x_prev_actions,
-            self.x_test_seq,
-            self.x_prev_action_seq,
-            self.x_text_pad_length,
-            self.x_prev_action_pad_length
         )
 
     def setup(self, stage: Optional[str] = None):
