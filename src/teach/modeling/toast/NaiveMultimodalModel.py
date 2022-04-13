@@ -1,3 +1,4 @@
+import torch
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from torch import nn, cat
 import torch.nn.functional as F
@@ -105,7 +106,7 @@ class NaiveMultiModalModel(pl.LightningModule):
         x_text, x_image, x_prev_actions = x["text"], x["cur_image"], x["prev_actions"]
         z = self.forward(x_image, x_text, x_prev_actions)
         loss = F.cross_entropy(z, y)
-        return loss
+        return loss if (loss is not torch.nan and loss is not torch.inf) else None
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
