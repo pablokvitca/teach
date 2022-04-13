@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 
 from pytorch_lightning import Trainer
@@ -13,31 +14,30 @@ logger = create_logger(__name__, level=logging.INFO)
 
 
 def does_model_exist(model_load_path):
-    return False  # TODO: implement
+    return os.path.exists(model_load_path)
 
 
 def load_or_create_model(model_load_path):
-    # TODO: implement loading
-    if model_load_path is not None:
-        if does_model_exist(model_load_path):
-            logger.info(f"Loading model from {model_load_path}.")
-        else:
-            logger.info(f"Could not find model to load at {model_load_path}. Creating new model.")
-    return NaiveMultiModalModel(
-        [
-            {"in_channels": 3, "out_channels": 32, "kernel_size": 11, "stride": 3},
-            {"in_channels": 32, "out_channels": 64, "kernel_size": 7},
-            {"in_channels": 64, "out_channels": 8, "kernel_size": 5}
-        ],  # image_conv_kwargs
-        [(30752, 512), (512, 128), (128, 16)],  # image_hidden_layer_sizes
-        300,  # text_word_vec_size
-        100,  # text_input_words
-        [128, 16],  # text_hidden_layer_sizes
-        100 * len(all_agent_actions),  # prev_actions_input_size
-        [128, 32],  # prev_actions_hidden_layer_sizes
-        [64, 32],  # combination_hidden_layers_size
-        len(all_agent_actions)  # output_layer_size
-    )
+    if model_load_path is not None and does_model_exist(model_load_path):
+        logger.info(f"Loading model from {model_load_path}.")
+        return NaiveMultiModalModel.load_from_checkpoint(model_load_path)
+    else:
+        logger.info(f"Could not find model to load at {model_load_path}. Creating new model.")
+        return NaiveMultiModalModel(
+            [
+                {"in_channels": 3, "out_channels": 32, "kernel_size": 11, "stride": 3},
+                {"in_channels": 32, "out_channels": 64, "kernel_size": 7},
+                {"in_channels": 64, "out_channels": 8, "kernel_size": 5}
+            ],  # image_conv_kwargs
+            [(30752, 512), (512, 128), (128, 16)],  # image_hidden_layer_sizes
+            300,  # text_word_vec_size
+            100,  # text_input_words
+            [128, 16],  # text_hidden_layer_sizes
+            100 * len(all_agent_actions),  # prev_actions_input_size
+            [128, 32],  # prev_actions_hidden_layer_sizes
+            [64, 32],  # combination_hidden_layers_size
+            len(all_agent_actions)  # output_layer_size
+        )
 
 
 def main(data_folder_path, wv2_path, model_checkpoints_path):
@@ -61,12 +61,14 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
     model = load_or_create_model(model_checkpoints_path)
     logger.info("model loaded")
 
-    checkpoint_callback = ModelCheckpoint(dirpath=model_checkpoints_path, save_top_k=2, monitor="val_loss")
+    checkpoint_callback = ModelCheckpoint(dirpath=model_checkpoints_path, save_top_k=3, monitor="val_loss")
     trainer = Trainer(
-        accelerator="cpu",
-        # accelerator="gpu", gpus=[0],
+        # accelerator="cpu",
+        accelerator="gpu", gpus=[0],
         auto_lr_find=True,
-        track_grad_norm=2
+        auto_scale_batch_size=True,
+        track_grad_norm=2,
+        callbacks=[checkpoint_callback],
     )
     logger.info("trainer created")
 
@@ -80,7 +82,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
         datamodule=naive_datamodule
     )
 
-    logger.info("Done!")
+    logger.info(f"Done! Best model at {checkpoint_callback.best_model_path}")
 
 
 if __name__ == "__main__":

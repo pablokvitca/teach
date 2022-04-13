@@ -24,6 +24,7 @@ class NaiveMultiModalModel(pl.LightningModule):
             activations="relu",
     ):
         super().__init__()
+        self.save_hyperparameters()
 
         self.learning_rate = 0.001
 
