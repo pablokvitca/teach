@@ -112,7 +112,7 @@ class NaiveMultiModalModel(pl.LightningModule):
         x_text, x_image, x_prev_actions = x["text"], x["cur_image"], x["prev_actions"]
         z = self.forward(x_image, x_text, x_prev_actions)
         loss = F.cross_entropy(z, y)
-        return loss if (loss is not torch.nan and loss is not torch.inf) else None
+        return loss if (not torch.isnan(loss) and not torch.isinf(loss)) else None
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
