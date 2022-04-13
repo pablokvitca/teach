@@ -69,7 +69,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
         auto_lr_find=True,
         # auto_scale_batch_size=True,
         track_grad_norm=2,
-        gradient_clip_val=1.0,
+        # gradient_clip_val=0.5,
         callbacks=[checkpoint_callback],
         max_epochs=100,
         num_sanity_val_steps=3,
