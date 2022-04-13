@@ -48,7 +48,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
     naive_datamodule = NaiveDataModule(
         data_folder_path,
         wv2_path,
-        32,  # batch_size,
+        512,  # batch_size,
         x_text_pad_length=100,
         x_prev_action_pad_length=100,
         use_small_dataset=True
@@ -66,9 +66,10 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
         # accelerator="cpu",
         accelerator="gpu", gpus=[0],
         auto_lr_find=True,
-        auto_scale_batch_size=True,
+        # auto_scale_batch_size=True,
         track_grad_norm=2,
         callbacks=[checkpoint_callback],
+        max_epochs=100,
     )
     logger.info("trainer created")
 
