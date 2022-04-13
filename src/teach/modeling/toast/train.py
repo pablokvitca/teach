@@ -1,6 +1,8 @@
 import logging
+import sys
 
 from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
@@ -84,5 +86,5 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
 
 if __name__ == "__main__":
     assert len(sys.argv) == 3
-    data_folder_path, wv2_path, model_checkpoints_path = sys.argv.split("")
+    data_folder_path, wv2_path, model_checkpoints_path = sys.argv
     main(data_folder_path, wv2_path, model_checkpoints_path)
