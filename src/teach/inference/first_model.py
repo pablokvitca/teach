@@ -86,7 +86,7 @@ class FirstModel(TeachModel):
         # logger.info(f"\tINPUT TEXT SHAPE {self.instance_text_encoded.size()}")
         # logger.info(f"\tINPUT PREV ACTIONS SHAPE {self.prev_actions.size()}")
         img_tensor = img_tensor[None, ...].float()
-        action_probs = self.model.forward(img_tensor, self.instance_text_encoded.unsqueeze(0), self.prev_actions.unsqueeze(0))
+        action_probs = self.model.forward(img_tensor, self.instance_text_encoded, self.prev_actions)
         # logger.info(f"\tOUTPUT SHAPE {action_probs.size()}")
         action, one_hot_action = FirstModel._get_action_from_probs(action_probs)
         obj_relative_coord = None
