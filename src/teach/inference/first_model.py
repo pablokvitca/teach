@@ -85,10 +85,10 @@ class FirstModel(TeachModel):
         img_tensor = self.tensorize_image(img)
         # logger.info("\tComputing actions scores with model...")
         logger.info(f"\tINPUT IMAGE SHAPE {img_tensor.size()}")
-        logger.info(f"\tINPUT TEXT SHAPE {self.instance_text_encoded.size()}")
+        logger.info(f"\tINPUT TEXT SHAPE {self.instance_text_encoded.flatten().size()}")
         logger.info(f"\tINPUT PREV ACTIONS SHAPE {self.prev_actions.size()}")
         img_tensor = img_tensor[None, ...].float()
-        action_probs = self.model.forward(img_tensor, self.instance_text_encoded, self.prev_actions)
+        action_probs = self.model.forward(img_tensor, self.instance_text_encoded.flatten(), self.prev_actions)
         # logger.info(f"\tOUTPUT SHAPE {action_probs.size()}")
         action, one_hot_action = FirstModel._get_action_from_probs(action_probs)
         obj_relative_coord = None
