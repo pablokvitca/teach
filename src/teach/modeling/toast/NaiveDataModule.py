@@ -23,6 +23,7 @@ class NaiveTEACHDataset(Dataset):
     def __init__(
             self,
             data_dir: str,
+            w2v_path: str,
             split_name: str,
             include_x_test: bool,
             include_x_cur_image: bool,
@@ -31,8 +32,6 @@ class NaiveTEACHDataset(Dataset):
             x_prev_action_seq: bool,
             x_text_pad_length: int,
             x_prev_action_pad_length: int,
-            # w2v_path: str = "/Volumes/Extreme SSD/GoogleNews-vectors-negative300.bin.gz"
-            w2v_path: str = "/home/sethsclass/GoogleNews-vectors-negative300.bin.gz"
     ):
         self.data_dir = data_dir
         self.split_name = split_name
@@ -160,6 +159,7 @@ class NaiveDataModule(LightningDataModule):
     """
     def __init__(self,
                  data_dir: str,
+                 wv2_path: str,
                  batch__size: int,
                  include_x_text: bool = True,
                  include_x_cur_image: bool = True,
@@ -169,10 +169,11 @@ class NaiveDataModule(LightningDataModule):
                  x_text_pad_length: int = 50,
                  x_prev_action_pad_length: int = 500,
                  use_small_dataset: bool = False,
-                 num_workers: int = 8
+                 num_workers: int = 8,
                  ):
         super().__init__()
         self.data_dir = data_dir
+        self.wv2_path = wv2_path
         self.batch_size = batch__size
         self.include_x_text = include_x_text
         self.include_x_cur_image = include_x_cur_image
@@ -195,6 +196,7 @@ class NaiveDataModule(LightningDataModule):
     def load_dataset(self, split_name) -> Dataset:
         return NaiveTEACHDataset(
             self.data_dir,
+            self.wv2_path,
             split_name,
             self.include_x_text,
             self.include_x_cur_image,

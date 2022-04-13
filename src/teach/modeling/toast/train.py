@@ -41,14 +41,13 @@ def load_or_create_model(model_load_path):
 
 
 def main(data_folder_path, wv2_path, model_checkpoints_path):
-    model_load_path = None
-    # data_folder_path = '/Volumes/Extreme SSD/teach-dataset/'
-    data_folder_path = "/home/sethsclass/teach-dataset/"
-
     logger.info(f"loading from path: {data_folder_path}")
+    logger.info(f"Using gensim embeddings from {wv2_path}")
+    logger.info(f"Saving/loading model checkpoints to/from {model_checkpoints_path}")
 
     naive_datamodule = NaiveDataModule(
         data_folder_path,
+        wv2_path,
         32,  # batch_size,
         x_text_pad_length=100,
         x_prev_action_pad_length=100,
@@ -59,10 +58,10 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
     logger.info("train and valid have been setup")
 
     # create/load model
-    model = load_or_create_model(model_load_path)
+    model = load_or_create_model(model_checkpoints_path)
     logger.info("model loaded")
 
-    checkpoint_callback = ModelCheckpoint(dirpath="my/path/", save_top_k=2, monitor="val_loss")
+    checkpoint_callback = ModelCheckpoint(dirpath=model_checkpoints_path, save_top_k=2, monitor="val_loss")
     trainer = Trainer(
         accelerator="cpu",
         # accelerator="gpu", gpus=[0],
@@ -85,6 +84,6 @@ def main(data_folder_path, wv2_path, model_checkpoints_path):
 
 
 if __name__ == "__main__":
-    assert len(sys.argv) == 3
-    data_folder_path, wv2_path, model_checkpoints_path = sys.argv
+    assert len(sys.argv) == 4
+    data_folder_path, wv2_path, model_checkpoints_path = sys.argv[1:]
     main(data_folder_path, wv2_path, model_checkpoints_path)
