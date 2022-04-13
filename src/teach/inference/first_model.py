@@ -56,6 +56,8 @@ class FirstModel(TeachModel):
 
         # logger.info("\tInitializing Naive Model...")
         self.model = NaiveMultiModalModel.load_from_checkpoint(args.model_path)
+        self.model.eval()
+
         self.instance_text_encoded = None
         self.observed_actions = 0
         self.prev_actions = None
