@@ -83,6 +83,7 @@ def main(data_folder_path, wv2_path, model_checkpoints_path, model_load_name):
     logger.info(f"Trainer tuned. LR: {model.learning_rate}")
 
     logger.info("Fitting model...")
+    model.learning_rate /= 100
     trainer.fit(
         model=model,
         datamodule=naive_datamodule
