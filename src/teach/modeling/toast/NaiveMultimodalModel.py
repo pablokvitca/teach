@@ -104,8 +104,16 @@ class NaiveMultiModalModel(pl.LightningModule):
         x, y = batch
         x_text, x_image, x_prev_actions = x["text"], x["cur_image"], x["prev_actions"]
         z = self.forward(x_image, x_text, x_prev_actions)
-        loss = F.cross_entropy(z, y.argmax(dim=1))
+        loss = F.cross_entropy(z, y)
         return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        x_text, x_image, x_prev_actions = x["text"], x["cur_image"], x["prev_actions"]
+        y_hat = self.forward(x_image, x_text, x_prev_actions)
+
+        loss = F.cross_entropy(y_hat, y)
+        self.log("val_loss", loss)
 
     def configure_optimizers(self):
         return Adam(self.parameters(), lr=self.learning_rate)
