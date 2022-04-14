@@ -34,3 +34,4 @@ nltk
 gensim
 jupyter
 pytorch-lightning
+hydra-core

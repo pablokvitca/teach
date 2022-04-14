@@ -1,6 +1,9 @@
 import json
 import logging
 import os
+import pickle
+import re
+import unicodedata
 from typing import Optional
 
 import torch
@@ -18,26 +21,78 @@ from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, 
 
 logger = create_logger(__name__, level=logging.INFO)
 
+SOS_token = 0
+EOS_token = 1
+
+
+class Lang:
+    def __init__(self, lang_path=None):
+        self.word2index = {}
+        self.word2count = {}
+        self.SOS_token_index, self.SOS_token = 0, '<SOS>'
+        self.EOS_token_index, self.EOS_token = 1, '<EOS>'
+        self.index2word = {
+            self.SOS_token_index: self.SOS_token,
+            self.EOS_token_index: self.EOS_token
+        }
+        self.n_words = 2  # Count SOS and EOS
+        if lang_path is not None:
+            if os.path.exists(lang_path):
+                self.load(lang_path)
+
+    def load(self, lang_path):
+        _lang = pickle.load(open(lang_path, 'rb'))
+        self.word2index = _lang["word2index"]
+        self.word2count = _lang["word2count"]
+        self.index2word = _lang["index2word"]
+        self.n_words = _lang["n_words"]
+        self.SOS_token_index = _lang["SOS_token_index"]
+        self.SOS_token = _lang["SOS_token"]
+        self.EOS_token_index = _lang["EOS_token_index"]
+        self.EOS_token = _lang["EOS_token"]
+
+    def save(self, lang_path):
+        pickle.dump({
+            "word2index": self.word2index,
+            "word2count": self.word2count,
+            "index2word": self.index2word,
+            "n_words": self.n_words,
+            "SOS_token_index": self.SOS_token_index,
+            "SOS_token": self.SOS_token,
+            "EOS_token_index": self.EOS_token_index,
+            "EOS_token": self.EOS_token,
+        }, open(lang_path, 'wb'))
+
+    def add_sentence(self, sentence):
+        for word in sentence.split(' '):
+            self.add_word(word)
+
+    def add_word(self, word, override_index=None):
+        if word not in self.word2index:
+            self.word2index[word] = self.n_words
+            self.word2count[word] = 1
+            self.index2word[self.n_words if override_index is None else override_index] = word
+            self.n_words += 1
+        else:
+            self.word2count[word] += 1
+
 
 class SequentialTEACHDataset(Dataset):
     def __init__(
             self,
             data_dir: str,
-            w2v_path: str,
             split_name: str,
             include_x_test: bool,
             include_x_cur_image: bool,
             include_x_prev_actions: bool,
+            input_lang_path=None,
+            output_lang_path=None,
     ):
         self.data_dir = data_dir
         self.split_name = split_name
         self.include_x_test = include_x_test
         self.include_x_cur_image = include_x_cur_image
-        self.include_x_prev_actions = include_x_prev_actions
-
-        self.w2v_model = KeyedVectors.load_word2vec_format(
-            w2v_path, binary=True, limit=100000
-        )
+        self.include_x_prev_actions = False and include_x_prev_actions
 
         self.all_agent_actions = set(all_agent_actions)
         definitions = Definitions(version="2.0")
@@ -50,13 +105,43 @@ class SequentialTEACHDataset(Dataset):
 
         self._img_transform = Transforms.get_transform("default")
 
+        self.input_lang_path = input_lang_path
+        self.input_lang = Lang(self.input_lang_path)
+        self.output_lang_path = output_lang_path
+        self.output_lang = Lang(self.output_lang_path)
+
         self.data = self._load_data()
+
+    @staticmethod
+    def normalize_string(s):
+        def unicode_to_ascii(s):
+            return ''.join(
+                c for c in unicodedata.normalize('NFD', s)
+                if unicodedata.category(c) != 'Mn'
+            )
+
+        s = unicode_to_ascii(s.lower().strip())
+        s = re.sub(r"([.!?])", r" \1", s)
+        s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+        return s
 
     def action_id_to_one_hot(self, action_id):
         return self._onehot_action_tensors[action_id]
 
     def tensorize_image(self, img):
         return self._img_transform(img)
+
+    @staticmethod
+    def _tensor_from_sentence(lang, token_list):
+        indexes = [lang.word2index[word] for word in token_list]
+        indexes.append(lang.EOS_token)
+        return torch.tensor(indexes, dtype=torch.long).view(-1, 1)
+
+    def tensorize_input_language(self, token_list):
+        return SequentialTEACHDataset._tensor_from_sentence(self.input_lang, token_list)
+
+    def tensorize_action_language(self, token_list):
+        return SequentialTEACHDataset._tensor_from_sentence(self.output_lang, token_list)
 
     def load_img(self, path_suffix):
         filepath = os.path.join(self.data_dir, 'images', self.split_name, path_suffix)
@@ -80,33 +165,34 @@ class SequentialTEACHDataset(Dataset):
                 edh_instance = json.load(f)
                 if self.include_x_test:
                     text_from_instance = get_text_tokens_from_instance(edh_instance)
-                    instance_text_encoded = encode_as_word_vectors(self.w2v_model, text_from_instance)
+                    if self.input_lang_path is None:
+                        [self.input_lang.add_word(word) for word in text_from_instance]
+                    instance_text_tensor = self.tensorize_input_language(text_from_instance)
 
-                prev_actions = []
-                observed_actions = 0
                 action_history, image_history = edh_instance["driver_action_history"], edh_instance["driver_image_history"]
-                action_future = edh_instance["driver_actions_future"]
+                filtered_actions, filtered_images = [], []
                 for idx, (action, img_filename) in enumerate(zip(action_history, image_history)):
                     if action["action_name"] in self.all_agent_actions:
-                        next_action = self.get_next_action(action_history, action_future, idx)
-                        if next_action is not None:
-                            y = self.action_id_to_one_hot(next_action["action_id"])
+                        filtered_actions.append(action)
+                        filtered_images.append(img_filename)
 
-                            if self.include_x_cur_image:
-                                instance_image = os.path.join(edh_instance["game_id"], img_filename)
-                            if self.include_x_prev_actions:
-                                action_onehot = self.action_id_to_one_hot(action['action_id'])
-                                prev_actions.append(action_onehot)
-                                observed_actions += 1
-                                instance_prev_actions = prev_actions.copy()
+                if self.include_x_cur_image:
+                    instance_images = [
+                        os.path.join(edh_instance["game_id"], img_filename) for img_filename in filtered_images
+                    ]
 
-                            x = {
-                                "text": instance_text_encoded,
-                                "cur_image": instance_image,
-                                "prev_actions": instance_prev_actions
-                            }
+                if self.output_lang_path is None:
+                    [self.output_lang.add_word(act, override_index=act["action_id"]) for act in filtered_actions]
+                instance_actions = self.tensorize_action_language([act["action_name"] for act in filtered_actions])
 
-                            data.append((x, y))
+                x = {
+                    "text": instance_text_tensor,
+                    "cur_image": instance_images,
+                    "prev_actions": instance_actions if self.include_x_prev_actions else None
+                }
+                y = instance_actions
+
+                data.append((x, y))
         return data
 
     def __len__(self):
@@ -139,8 +225,9 @@ class SequentialDataModule(LightningDataModule):
     """
     def __init__(self,
                  data_dir: str,
-                 wv2_path: str,
-                 batch__size: int,
+                 batch_size: int,
+                 input_lang_path=None,
+                 output_lang_path=None,
                  include_x_text: bool = True,
                  include_x_cur_image: bool = True,
                  include_x_prev_actions: bool = True,
@@ -149,8 +236,9 @@ class SequentialDataModule(LightningDataModule):
                  ):
         super().__init__()
         self.data_dir = data_dir
-        self.wv2_path = wv2_path
-        self.batch_size = batch__size
+        self.batch_size = batch_size
+        self.input_lang_path = input_lang_path
+        self.output_lang_path = output_lang_path
         self.include_x_text = include_x_text
         self.include_x_cur_image = include_x_cur_image
         self.include_x_prev_actions = include_x_prev_actions
@@ -168,11 +256,12 @@ class SequentialDataModule(LightningDataModule):
     def load_dataset(self, split_name) -> Dataset:
         return SequentialTEACHDataset(
             self.data_dir,
-            self.wv2_path,
             split_name,
             self.include_x_text,
             self.include_x_cur_image,
             self.include_x_prev_actions,
+            input_lang_path=self.input_lang_path,
+            output_lang_path=self.output_lang_path,
         )
 
     def setup(self, stage: Optional[str] = None):
