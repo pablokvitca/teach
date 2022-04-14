@@ -12,3 +12,4 @@ src/teach/analysis/.ipynb_checkpoints/
 pip-wheel-metadata/
 *.pyc
 **/lightning_logs/
+src/teach/modeling/toast/outputs/

@@ -8,7 +8,7 @@ from typing import Optional
 
 import torch
 from PIL import Image
-from gensim.models import KeyedVectors
+from nltk import pad_sequence
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, DataLoader
 from tqdm import trange
@@ -17,12 +17,12 @@ from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
 from teach.modeling.et.alfred.nn.transforms import Transforms
-from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, encode_as_word_vectors
 
 logger = create_logger(__name__, level=logging.INFO)
 
 SOS_token = 0
 EOS_token = 1
+PAD_token = 2
 
 
 class Lang:
@@ -31,11 +31,13 @@ class Lang:
         self.word2count = {}
         self.SOS_token_index, self.SOS_token = 0, '<SOS>'
         self.EOS_token_index, self.EOS_token = 1, '<EOS>'
+        self.PAD_token_index, self.PAD_token = 2, '<PAD>'
         self.index2word = {
             self.SOS_token_index: self.SOS_token,
-            self.EOS_token_index: self.EOS_token
+            self.EOS_token_index: self.EOS_token,
+            self.PAD_token_index: self.PAD_token
         }
-        self.n_words = 2  # Count SOS and EOS
+        self.n_words = 3  # Count SOS and EOS
         if lang_path is not None:
             if os.path.exists(lang_path):
                 self.load(lang_path)
@@ -50,6 +52,8 @@ class Lang:
         self.SOS_token = _lang["SOS_token"]
         self.EOS_token_index = _lang["EOS_token_index"]
         self.EOS_token = _lang["EOS_token"]
+        self.PAD_token_index = _lang["PAD_token_index"]
+        self.PAD_token = _lang["PAD_token"]
 
     def save(self, lang_path):
         pickle.dump({
@@ -61,6 +65,8 @@ class Lang:
             "SOS_token": self.SOS_token,
             "EOS_token_index": self.EOS_token_index,
             "EOS_token": self.EOS_token,
+            "PAD_token_index": self.PAD_token_index,
+            "PAD_token": self.PAD_token,
         }, open(lang_path, 'wb'))
 
     def add_sentence(self, sentence):
@@ -87,12 +93,14 @@ class SequentialTEACHDataset(Dataset):
             include_x_prev_actions: bool,
             input_lang_path=None,
             output_lang_path=None,
+            token_pad_length=300,
     ):
         self.data_dir = data_dir
         self.split_name = split_name
-        self.include_x_test = include_x_test
+        self.include_x_text = include_x_test
         self.include_x_cur_image = include_x_cur_image
         self.include_x_prev_actions = False and include_x_prev_actions
+        self.token_pad_length = token_pad_length
 
         self.all_agent_actions = set(all_agent_actions)
         definitions = Definitions(version="2.0")
@@ -105,9 +113,9 @@ class SequentialTEACHDataset(Dataset):
 
         self._img_transform = Transforms.get_transform("default")
 
-        self.input_lang_path = input_lang_path
+        self.input_lang_path = input_lang_path if os.path.exists(input_lang_path) else None
         self.input_lang = Lang(self.input_lang_path)
-        self.output_lang_path = output_lang_path
+        self.output_lang_path = output_lang_path if os.path.exists(output_lang_path) else None
         self.output_lang = Lang(self.output_lang_path)
 
         self.data = self._load_data()
@@ -134,7 +142,7 @@ class SequentialTEACHDataset(Dataset):
     @staticmethod
     def _tensor_from_sentence(lang, token_list):
         indexes = [lang.word2index[word] for word in token_list]
-        indexes.append(lang.EOS_token)
+        indexes.append(lang.EOS_token_index)
         return torch.tensor(indexes, dtype=torch.long).view(-1, 1)
 
     def tensorize_input_language(self, token_list):
@@ -155,6 +163,15 @@ class SequentialTEACHDataset(Dataset):
                 return action
         return None
 
+    @staticmethod
+    def get_text_tokens_from_instance(edh_instance):
+        tokens_list = []
+        cleaned_dialog = edh_instance["dialog_history_cleaned"]
+        for dialog_part in cleaned_dialog:
+            dialog_part = SequentialTEACHDataset.normalize_string(dialog_part[1])
+            tokens_list.extend(dialog_part.split())
+        return tokens_list
+
     def _load_data(self):
         edh_dir = os.path.join(self.data_dir, 'edh_instances', self.split_name)
         files = sorted(os.listdir(edh_dir))
@@ -163,8 +180,8 @@ class SequentialTEACHDataset(Dataset):
             file = files[i]
             with open(os.path.join(edh_dir, file)) as f:
                 edh_instance = json.load(f)
-                if self.include_x_test:
-                    text_from_instance = get_text_tokens_from_instance(edh_instance)
+                if self.include_x_text:
+                    text_from_instance = SequentialTEACHDataset.get_text_tokens_from_instance(edh_instance)
                     if self.input_lang_path is None:
                         [self.input_lang.add_word(word) for word in text_from_instance]
                     instance_text_tensor = self.tensorize_input_language(text_from_instance)
@@ -182,12 +199,12 @@ class SequentialTEACHDataset(Dataset):
                     ]
 
                 if self.output_lang_path is None:
-                    [self.output_lang.add_word(act, override_index=act["action_id"]) for act in filtered_actions]
+                    [self.output_lang.add_word(act["action_name"], override_index=act["action_id"]) for act in filtered_actions]
                 instance_actions = self.tensorize_action_language([act["action_name"] for act in filtered_actions])
 
                 x = {
-                    "text": instance_text_tensor,
-                    "cur_image": instance_images,
+                    "text": instance_text_tensor if self.include_x_text else None,
+                    "cur_image": instance_images if self.include_x_cur_image else None,
                     "prev_actions": instance_actions if self.include_x_prev_actions else None
                 }
                 y = instance_actions
@@ -200,7 +217,7 @@ class SequentialTEACHDataset(Dataset):
 
     def __getitem__(self, idx: int):
         x, y = self.data[idx]
-        x_cur_img = self.load_img(x["cur_image"])
+        x_cur_img = [self.load_img(img_file) for img_file in x["cur_image"]] if self.include_x_cur_image else None
         return {"text": x["text"], "cur_image": x_cur_img, "prev_actions": x["prev_actions"]}, y
 
 
@@ -253,6 +270,11 @@ class SequentialDataModule(LightningDataModule):
 
         self.num_workers = num_workers
 
+        def seq_collate_fn(batch):
+            x_text = pad_sequence(x_text, batch_first=True, padding_value=self.input_lang.word2index["<PAD>"])
+
+        self.collate_fn = seq_collate_fn
+
     def load_dataset(self, split_name) -> Dataset:
         return SequentialTEACHDataset(
             self.data_dir,
@@ -281,24 +303,49 @@ class SequentialDataModule(LightningDataModule):
     def train_dataloader(self):
         if self.train_dataset is None:
             raise ValueError("train dataset is not loaded")
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+        )
 
     def val_dataloader(self):
         if self.valid_seen_dataset is None:
             raise ValueError("valid seen dataset is not loaded")
-        return DataLoader(self.valid_seen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.valid_seen_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+        )
 
     def val_unseen_dataloader(self):
         if self.valid_unseen_dataset is None:
             raise ValueError("valid unseen dataset is not loaded")
-        return DataLoader(self.valid_unseen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.valid_unseen_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+        )
 
     def test_dataloader(self):
         if self.test_seen_dataset is None:
             raise ValueError("test seen dataset is not loaded")
-        return DataLoader(self.test_seen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.test_seen_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+        )
 
     def test_unseen_dataloader(self):
         if self.test_unseen_dataset is None:
             raise ValueError("test unseen dataset is not loaded")
-        return DataLoader(self.test_unseen_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.test_unseen_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=self.collate_fn,
+        )

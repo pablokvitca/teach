@@ -76,7 +76,7 @@ def get_datamodule(cfg: DictConfig):
             input_lang_path=cfg.gru_text.input_lang_path,
             output_lang_path=cfg.gru_text.output_lang_path,
             include_x_text=True,
-            include_x_cur_image=True,
+            include_x_cur_image=False,
             include_x_prev_actions=True,
             use_small_dataset=cfg.use_small_dataset,
         )
@@ -107,8 +107,8 @@ def main(cfg: DictConfig) -> None:
     )
     trainer = Trainer(
         accelerator=cfg.trainer.acc_device,
-        gpus=[0],
-        auto_lr_find=cfg.trainer.auto_lr_find,
+        devices=cfg.trainer.devices,
+        auto_lr_find=cfg.trainer.auto_lr_find and cfg[cfg.model_type].auto_lr_find,
         track_grad_norm=cfg.trainer.track_grad_norm,
         gradient_clip_val=cfg.trainer.gradient_clip_val,
         gradient_clip_algorithm=cfg.trainer.gradient_clip_algorithm,
@@ -116,6 +116,7 @@ def main(cfg: DictConfig) -> None:
         max_epochs=cfg.trainer.max_epochs,
         num_sanity_val_steps=cfg.trainer.num_sanity_val_steps,
         detect_anomaly=cfg.trainer.detect_anomaly,
+        fast_dev_run=cfg.trainer.fast_dev_run,
     )
     logger.info("trainer created")
 
