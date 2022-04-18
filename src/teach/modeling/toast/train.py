@@ -108,7 +108,7 @@ def main(cfg: DictConfig) -> None:
     )
     trainer = Trainer(
         accelerator=cfg.trainer.acc_device,
-        devices=cfg.trainer.devices,
+        devices=[int(d) for d in cfg.trainer.devices.split(',')] if cfg.trainer.acc_device == 'gpu' else cfg.trainer.devices,
         auto_lr_find=cfg.trainer.auto_lr_find and cfg[cfg.model_type].auto_lr_find,
         track_grad_norm=cfg.trainer.track_grad_norm,
         gradient_clip_val=cfg.trainer.gradient_clip_val,
