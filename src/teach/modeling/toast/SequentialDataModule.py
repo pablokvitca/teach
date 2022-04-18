@@ -277,8 +277,8 @@ class SequentialDataModule(LightningDataModule):
         y_lengths = Tensor([t.shape[0] for t in y])
 
         # pad
-        x = pad_sequence(x)
-        y = pad_sequence(y)
+        x = pad_sequence(x, batch_first=True)
+        y = pad_sequence(y, batch_first=True)
 
         # compute mask
         x_mask = (x != 0)
