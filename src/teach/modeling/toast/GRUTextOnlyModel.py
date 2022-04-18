@@ -58,7 +58,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             pre_decoder_output=None,
             return_only_action_probs=True
     ):
-        batch_size = text_tensor.size(0)
+        batch_size = text_tensor.size(1)
         if pre_encoder_output is None:
             encoder_outputs = torch.zeros(self.max_length, self.encoder_hidden_size, device=self.device)
             encoder_hidden = self.encoder.init_hidden(batch_size)
@@ -119,7 +119,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss = self.training_step(batch, batch_idx)
-        self.log("val_loss", loss, batch_size=batch[0][0].size(0))
+        self.log("val_loss", loss)
         return loss
 
     def configure_optimizers(self):
