@@ -119,7 +119,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss = self.training_step(batch, batch_idx)
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, batch_size=batch[0][0].size(1))
         return loss
 
     def configure_optimizers(self):
