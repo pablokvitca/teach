@@ -15,6 +15,7 @@ gru_text:
   teacher_forcing: True
   decoder_dropout_p: 0.5
   auto_lr_find: False
+  max_length: 1000
 trainer:
   checkpoints_save_top_k: 3
   acc_device: cpu

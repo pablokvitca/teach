@@ -20,6 +20,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             teacher_forcing=False,
             decoder_dropout_p=0.1,
             learning_rate=0.001,
+            max_length=1000,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -31,6 +32,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         self.teacher_forcing = teacher_forcing
         self.decoder_dropout_p = decoder_dropout_p
         self.learning_rate = learning_rate
+        self.max_length = max_length
 
         self.encoder = EncoderRNN(
             self.input_lang_n_words,
@@ -40,7 +42,8 @@ class GRUTextOnlyModel(pl.LightningModule):
         self.decoder = AttnDecoderRNN(
             self.decoder_hidden_size,
             self.output_lang_n_words,
-            dropout_p=self.decoder_dropout_p
+            dropout_p=self.decoder_dropout_p,
+            max_length=self.max_length
         )
 
         self.SOS_token = 0  # TODO: init sos token!
@@ -55,10 +58,10 @@ class GRUTextOnlyModel(pl.LightningModule):
             pre_decoder_output=None,
             return_only_action_probs=True
     ):
-
+        batch_size = text_tensor.size(1)
         if pre_encoder_output is None:
             encoder_outputs = torch.zeros(self.max_length, self.encoder_hidden_size, device=self.device)
-            encoder_hidden = self.encoder.initHidden()
+            encoder_hidden = self.encoder.init_hidden(batch_size)
             for input_token_tensor_idx in range(text_tensor.size()[0]):
                 encoder_output, encoder_hidden = self.encoder.forward(
                     text_tensor[input_token_tensor_idx],
@@ -70,7 +73,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
         # Setup input for decoder
         if pre_decoder_output is None:
-            decoder_input = torch.tensor([[self.SOS_token]], device=self.device)
+            decoder_input = torch.tensor([[self.SOS_token] for _ in range(batch_size)], device=self.device)
             decoder_hidden = encoder_hidden
         else:
             decoder_input, decoder_hidden = pre_decoder_output
@@ -87,11 +90,11 @@ class GRUTextOnlyModel(pl.LightningModule):
         else:
             return (encoder_outputs, encoder_hidden), (decoder_output, decoder_hidden)
 
-    def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y = batch
-        x_text = x["text"]
+    def training_step(self, batch, batch_idx, optimizer_idx=None) -> STEP_OUTPUT:
+        x, y = batch[0]
+        x_text = x
         pre_encoder_output, pre_decoder_output = None, None
-        loss = torch.Tensor(0, device=self.device)
+        loss = torch.zeros(1, device=self.device)
         for y_token_idx in range(y.size()[0]):
             y_token = y[y_token_idx]
             pre_encoder_output, (decoder_output, decoder_hidden) = \
@@ -103,7 +106,7 @@ class GRUTextOnlyModel(pl.LightningModule):
                     pre_decoder_output=pre_decoder_output,
                     return_only_action_probs=False
                 )
-            loss += F.cross_entropy(decoder_output, y_token)
+            loss += F.cross_entropy(decoder_output, F.one_hot(y_token.squeeze(), num_classes=19).to(dtype=torch.float))
 
             if self.teacher_forcing:
                 decoder_input = y_token
@@ -112,7 +115,7 @@ class GRUTextOnlyModel(pl.LightningModule):
                 if decoder_input.item() == self.EOS_token:
                     break
             pre_decoder_output = (decoder_input, decoder_hidden)
-        return loss if (not torch.isnan(loss) and not torch.isinf(loss)) else None
+        return loss.squeeze()
 
     def validation_step(self, batch, batch_idx):
         loss = self.training_step(batch, batch_idx)
@@ -124,7 +127,7 @@ class GRUTextOnlyModel(pl.LightningModule):
                Adam(self.decoder.parameters(), lr=self.learning_rate)
 
 
-class EncoderRNN(nn.Module):
+class EncoderRNN(pl.LightningModule):
     def __init__(self, input_size, hidden_size):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
@@ -133,16 +136,16 @@ class EncoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size)
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
-        output = embedded
-        output, hidden = self.gru(output, hidden)
+        batch_size = input.size(0)
+        embedded = self.embedding(input).view(1, batch_size, -1)
+        output, hidden = self.gru(embedded, hidden)
         return output, hidden
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=self.device)
+    def init_hidden(self, batch_size):
+        return torch.zeros(1, batch_size, self.hidden_size, device=self.device)
 
 
-class AttnDecoderRNN(nn.Module):
+class AttnDecoderRNN(pl.LightningModule):
     def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=100):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
@@ -158,7 +161,8 @@ class AttnDecoderRNN(nn.Module):
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, hidden, encoder_outputs):
-        embedded = self.embedding(input).view(1, 1, -1)
+        batch_size = input.size(0)
+        embedded = self.embedding(input).view(1, batch_size, -1)
         embedded = self.dropout(embedded)
 
         attn_weights = F.softmax(
@@ -175,5 +179,5 @@ class AttnDecoderRNN(nn.Module):
         output = F.log_softmax(self.out(output[0]), dim=1)
         return output, hidden, attn_weights
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size)
+    def init_hidden(self, batch_size):
+        return torch.zeros(1, batch_size, self.hidden_size)

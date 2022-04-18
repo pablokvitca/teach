@@ -55,6 +55,7 @@ def load_or_create_model(cfg: DictConfig, datamodule):
                 teacher_forcing=cfg.gru_text.teacher_forcing,
                 decoder_dropout_p=cfg.gru_text.decoder_dropout_p,
                 learning_rate=cfg.lr,
+                max_length=cfg.gru_text.max_length,
             )
     raise ValueError(f"Unknown model type {cfg.model_type}")
 

@@ -8,8 +8,9 @@ from typing import Optional
 
 import torch
 from PIL import Image
-from nltk import pad_sequence
 from pytorch_lightning import LightningDataModule
+from torch import Tensor
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, DataLoader
 from tqdm import trange
 
@@ -199,14 +200,11 @@ class SequentialTEACHDataset(Dataset):
                     ]
 
                 if self.output_lang_path is None:
-                    [self.output_lang.add_word(act["action_name"], override_index=act["action_id"]) for act in filtered_actions]
+                    [self.output_lang.add_word(act["action_name"], override_index=act["action_id"])
+                     for act in filtered_actions]
                 instance_actions = self.tensorize_action_language([act["action_name"] for act in filtered_actions])
 
-                x = {
-                    "text": instance_text_tensor if self.include_x_text else None,
-                    "cur_image": instance_images if self.include_x_cur_image else None,
-                    "prev_actions": instance_actions if self.include_x_prev_actions else None
-                }
+                x = instance_text_tensor
                 y = instance_actions
 
                 data.append((x, y))
@@ -217,8 +215,8 @@ class SequentialTEACHDataset(Dataset):
 
     def __getitem__(self, idx: int):
         x, y = self.data[idx]
-        x_cur_img = [self.load_img(img_file) for img_file in x["cur_image"]] if self.include_x_cur_image else None
-        return {"text": x["text"], "cur_image": x_cur_img, "prev_actions": x["prev_actions"]}, y
+        # x_cur_img = [self.load_img(img_file) for img_file in x["cur_image"]] if self.include_x_cur_image else None
+        return x, y
 
 
 class SequentialDataModule(LightningDataModule):
@@ -270,10 +268,25 @@ class SequentialDataModule(LightningDataModule):
 
         self.num_workers = num_workers
 
-        def seq_collate_fn(batch):
-            x_text = pad_sequence(x_text, batch_first=True, padding_value=self.input_lang.word2index["<PAD>"])
+    @staticmethod
+    def collate_fn_pad(batch):
+        x, y = zip(*batch)
 
-        self.collate_fn = seq_collate_fn
+        # lengths
+        x_lengths = Tensor([t.shape[0] for t in x])
+        y_lengths = Tensor([t.shape[0] for t in y])
+
+        # pad
+        x = pad_sequence(x)
+        y = pad_sequence(y)
+
+        # compute mask
+        x_mask = (x != 0)
+        y_mask = (y != 0)
+
+        batch = x, y
+
+        return batch, (x_lengths, y_lengths), (x_mask, y_mask)
 
     def load_dataset(self, split_name) -> Dataset:
         return SequentialTEACHDataset(
@@ -300,52 +313,35 @@ class SequentialDataModule(LightningDataModule):
         if (stage == "test_unseen" or stage is None) and self.test_unseen_dataset is None:
             self.test_unseen_dataset = self.load_dataset('test_unseen')
 
+    def _get_dataloader(self, dataset):
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=SequentialDataModule.collate_fn_pad,
+        )
+
     def train_dataloader(self):
         if self.train_dataset is None:
             raise ValueError("train dataset is not loaded")
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            collate_fn=self.collate_fn,
-        )
+        return self._get_dataloader(self.train_dataset)
 
     def val_dataloader(self):
         if self.valid_seen_dataset is None:
             raise ValueError("valid seen dataset is not loaded")
-        return DataLoader(
-            self.valid_seen_dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            collate_fn=self.collate_fn,
-        )
+        return self._get_dataloader(self.valid_seen_dataset)
 
     def val_unseen_dataloader(self):
         if self.valid_unseen_dataset is None:
             raise ValueError("valid unseen dataset is not loaded")
-        return DataLoader(
-            self.valid_unseen_dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            collate_fn=self.collate_fn,
-        )
+        return self._get_dataloader(self.valid_unseen_dataset)
 
     def test_dataloader(self):
         if self.test_seen_dataset is None:
             raise ValueError("test seen dataset is not loaded")
-        return DataLoader(
-            self.test_seen_dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            collate_fn=self.collate_fn,
-        )
+        return self._get_dataloader(self.test_seen_dataset)
 
     def test_unseen_dataloader(self):
         if self.test_unseen_dataset is None:
             raise ValueError("test unseen dataset is not loaded")
-        return DataLoader(
-            self.test_unseen_dataset,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            collate_fn=self.collate_fn,
-        )
+        return self._get_dataloader(self.test_unseen_dataset)
