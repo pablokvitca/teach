@@ -29,5 +29,5 @@ trainer:
   detect_anomaly: False
   fast_dev_run: False
 lr: 0.0001
-batch_size: 16
-use_small_dataset: True
+batch_size: 128
+use_small_dataset: False

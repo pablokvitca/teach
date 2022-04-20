@@ -94,6 +94,8 @@ class SequentialTEACHDataset(Dataset):
             include_x_prev_actions: bool,
             input_lang_path=None,
             output_lang_path=None,
+            input_lang=None,
+            output_lang=None,
             token_pad_length=300,
     ):
         self.data_dir = data_dir
@@ -114,10 +116,13 @@ class SequentialTEACHDataset(Dataset):
 
         self._img_transform = Transforms.get_transform("default")
 
+        # assert (input_lang_path is not None) != (input_lang is not None)
+        # assert (output_lang_path is not None) != (output_lang is not None)
+
         self.input_lang_path = input_lang_path if os.path.exists(input_lang_path) else None
-        self.input_lang = Lang(self.input_lang_path)
+        self.input_lang = input_lang or Lang(self.input_lang_path)
         self.output_lang_path = output_lang_path if os.path.exists(output_lang_path) else None
-        self.output_lang = Lang(self.output_lang_path)
+        self.output_lang = output_lang or Lang(self.output_lang_path)
 
         self.data = self._load_data()
 
@@ -266,6 +271,9 @@ class SequentialDataModule(LightningDataModule):
         self.test_seen_dataset = None
         self.test_unseen_dataset = None
 
+        self.shared_input_lang = None
+        self.shared_output_lang = None
+
         self.num_workers = num_workers
 
     @staticmethod
@@ -277,8 +285,8 @@ class SequentialDataModule(LightningDataModule):
         y_lengths = Tensor([t.shape[0] for t in y])
 
         # pad
-        x = pad_sequence(x, batch_first=True)
-        y = pad_sequence(y, batch_first=True)
+        x = pad_sequence(x)
+        y = pad_sequence(y)
 
         # compute mask
         x_mask = (x != 0)
@@ -289,7 +297,7 @@ class SequentialDataModule(LightningDataModule):
         return batch, (x_lengths, y_lengths), (x_mask, y_mask)
 
     def load_dataset(self, split_name) -> Dataset:
-        return SequentialTEACHDataset(
+        dataset = SequentialTEACHDataset(
             self.data_dir,
             split_name,
             self.include_x_text,
@@ -297,7 +305,12 @@ class SequentialDataModule(LightningDataModule):
             self.include_x_prev_actions,
             input_lang_path=self.input_lang_path,
             output_lang_path=self.output_lang_path,
+            input_lang=self.shared_input_lang,
+            output_lang=self.shared_output_lang,
         )
+        self.shared_input_lang = dataset.input_lang
+        self.shared_output_lang = dataset.output_lang
+        return dataset
 
     def setup(self, stage: Optional[str] = None):
         logger.info(f"Loading dataset for stage {stage}")

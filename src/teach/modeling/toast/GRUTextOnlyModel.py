@@ -1,6 +1,6 @@
 import torch
 from pytorch_lightning.utilities.types import STEP_OUTPUT
-from torch import nn
+from torch import nn, Tensor
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim import Adam
@@ -62,7 +62,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         if pre_encoder_output is None:
             encoder_outputs = torch.zeros(self.max_length, self.encoder_hidden_size, device=self.device)
             encoder_hidden = self.encoder.init_hidden(batch_size)
-            for input_token_tensor_idx in range(text_tensor.size()[0]):
+            for input_token_tensor_idx in range(text_tensor.size(0)):
                 encoder_output, encoder_hidden = self.encoder.forward(
                     text_tensor[input_token_tensor_idx],
                     encoder_hidden
@@ -106,7 +106,11 @@ class GRUTextOnlyModel(pl.LightningModule):
                     pre_decoder_output=pre_decoder_output,
                     return_only_action_probs=False
                 )
-            loss += F.cross_entropy(decoder_output, F.one_hot(y_token.squeeze(), num_classes=19).to(dtype=torch.float))
+
+            loss += F.cross_entropy(
+                decoder_output,
+                F.one_hot(y_token, num_classes=19).to(dtype=torch.float).squeeze(dim=1)
+            )
 
             if self.teacher_forcing:
                 decoder_input = y_token
@@ -130,13 +134,17 @@ class GRUTextOnlyModel(pl.LightningModule):
 class EncoderRNN(pl.LightningModule):
     def __init__(self, input_size, hidden_size):
         super(EncoderRNN, self).__init__()
+        self.input_size = input_size
         self.hidden_size = hidden_size
 
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
 
-    def forward(self, input, hidden):
+    def forward(self, input: Tensor, hidden):
         batch_size = input.size(0)
+        # if self.input_size <= input.max():
+        #     logger.error(f"UNKNOWN TOKEN! # of known tokens: {self.input_size}, looking for {input.max()}")
+        #     logger.error(f"{input}")
         embedded = self.embedding(input).view(1, batch_size, -1)
         output, hidden = self.gru(embedded, hidden)
         return output, hidden
