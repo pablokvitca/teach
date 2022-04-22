@@ -12,6 +12,7 @@ from teach.modeling.toast.GRUTextOnlyModel import GRUTextOnlyModel
 from teach.modeling.toast.NaiveDataModule import NaiveDataModule
 from teach.modeling.toast.NaiveMultimodalModel import NaiveMultiModalModel
 from teach.modeling.toast.SequentialDataModule import SequentialDataModule
+from teach.modeling.toast.SequentialSubgoalDataModule import SequentialSubgoalDataModule
 
 logger = create_logger(__name__, level=logging.INFO)
 
@@ -21,12 +22,12 @@ def does_model_exist(model_load_path):
 
 
 def load_or_create_model(cfg: DictConfig, datamodule):
-    path = os.path.join(cfg.model_checkpoints_path or '', cfg.model_load_name)
-    if cfg.model_checkpoints_path is not None and does_model_exist(path):
+    path = os.path.join(cfg.model_checkpoints_pre_path or '', cfg.model_type, cfg.model_load_name)
+    if cfg.model_checkpoints_pre_path is not None and does_model_exist(path):
         logger.info(f"Loading model from {path}.")
         if cfg.model_type == 'naive':
             return NaiveMultiModalModel.load_from_checkpoint(path)
-        if cfg.model_type == 'gru_text':
+        if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
             return GRUTextOnlyModel.load_from_checkpoint(path)
     else:
         logger.info(f"Could not find model to load at {path}. Creating new model.")
@@ -46,7 +47,7 @@ def load_or_create_model(cfg: DictConfig, datamodule):
                 [64, 32],  # combination_hidden_layers_size
                 len(all_agent_actions)  # output_layer_size
             )
-        if cfg.model_type == 'gru_text':
+        if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
             return GRUTextOnlyModel(
                 datamodule.train_dataset.input_lang.n_words,
                 cfg.gru_text.encoder_hidden_size,
@@ -54,7 +55,7 @@ def load_or_create_model(cfg: DictConfig, datamodule):
                 datamodule.train_dataset.output_lang.n_words,
                 teacher_forcing=cfg.gru_text.teacher_forcing,
                 decoder_dropout_p=cfg.gru_text.decoder_dropout_p,
-                learning_rate=cfg.lr,
+                learning_rate=cfg.trainer.lr,
                 max_length=cfg.gru_text.max_length,
             )
     raise ValueError(f"Unknown model type {cfg.model_type}")
@@ -65,27 +66,45 @@ def get_datamodule(cfg: DictConfig):
         return NaiveDataModule(
             cfg.data_folder_path,
             cfg.naive.wv2_path,
-            cfg.batch_size,
+            cfg.datamodule.batch_size,
             x_text_pad_length=cfg.naive.x_text_pad_length,
             x_prev_action_pad_length=cfg.naive.x_prev_action_pad_length,
-            use_small_dataset=cfg.use_small_dataset,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            num_workers=cfg.datamodule.num_workers,
         )
     if cfg.model_type == 'gru_text':
         return SequentialDataModule(
             cfg.data_folder_path,
-            cfg.batch_size,
+            cfg.datamodule.batch_size,
             input_lang_path=cfg.gru_text.input_lang_path,
             output_lang_path=cfg.gru_text.output_lang_path,
             include_x_text=True,
             include_x_cur_image=False,
             include_x_prev_actions=True,
-            use_small_dataset=cfg.use_small_dataset,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            num_workers=cfg.datamodule.num_workers,
+        )
+    if cfg.model_type == 'gru_text_subgoal':
+        return SequentialSubgoalDataModule(
+            cfg.data_folder_path,
+            cfg.datamodule.batch_size,
+            input_lang_path=cfg.gru_text_subgoal.input_lang_path,
+            output_lang_path=cfg.gru_text_subgoal.output_lang_path,
+            include_x_text=True,
+            use_subgoal_history=cfg.gru_text_subgoal.use_subgoal_history,
+            use_subgoal_future=cfg.gru_text_subgoal.use_subgoal_future,
+            use_commander_language=cfg.gru_text_subgoal.use_commander_language,
+            use_follower_language=cfg.gru_text_subgoal.use_follower_language,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            num_workers=cfg.datamodule.num_workers,
         )
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
 @hydra.main(config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    if cfg.model_type not in cfg.known_model_data_types:
+        raise ValueError(f"Unknown model type {cfg.model_type}")
     logger.info(f"Model type: {cfg.model_type}")
     logger.info(f"loading from path: {cfg.data_folder_path}")
     logger.info(f"Using gensim embeddings from {cfg.naive.wv2_path}")
@@ -102,7 +121,7 @@ def main(cfg: DictConfig) -> None:
     logger.info("model loaded")
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath=cfg.model_checkpoints_path,
+        dirpath=os.path.join(cfg.model_checkpoints_pre_path, cfg.model_type),
         save_top_k=cfg.trainer.checkpoints_save_top_k,
         monitor="val_loss"
     )
@@ -121,13 +140,16 @@ def main(cfg: DictConfig) -> None:
     )
     logger.info("trainer created")
 
-    logger.info("Tuning training hyperparameters")
-    trainer.tune(model, datamodule=datamodule)
-    logger.info(f"Trainer tuned. LR: {model.learning_rate}")
+    if cfg.trainer.auto_lr_find or cfg.trainer.auto_batch_find:
+        logger.info("Tuning training hyper parameters")
+        trainer.tune(model, datamodule=datamodule)
+        logger.info(f"Trainer tuned. LR: {model.learning_rate}")
+    else:
+        logger.info("Skipped tuning")
 
     logger.info("Fitting model...")
     if not cfg.trainer.auto_lr_find:
-        model.learning_rate = cfg.lr
+        model.learning_rate = cfg.trainer.lr
     trainer.fit(
         model=model,
         datamodule=datamodule
