@@ -84,8 +84,7 @@ def get_datamodule(cfg: DictConfig):
         )
     if cfg.model_type == 'gru_text':
         logger.info(f"Using input/output langs at {cfg.gru_text.input_lang_path}/{cfg.gru_text.output_lang_path}")
-
-        datamodule = SequentialDataModule(
+        return SequentialDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
             validation_batch_size=cfg.datamodule.validation_batch_size,
@@ -97,15 +96,9 @@ def get_datamodule(cfg: DictConfig):
             use_small_dataset=cfg.datamodule.use_small_dataset,
             num_workers=cfg.datamodule.num_workers,
         )
-        if cfg.datamodule.fail_if_cannot_load:
-            if cfg.gru_text.input_lang_path is not None and not datamodule.shared_input_lang.loaded_from_file:
-                raise ValueError(f"Could not load input langs from {cfg.gru_text.input_lang_path}")
-            if cfg.gru_text.output_lang_path is not None and not datamodule.shared_output_lang.loaded_from_file:
-                raise ValueError(f"Could not load output langs from {cfg.gru_text.output_lang_path}")
-        return datamodule
     if cfg.model_type == 'gru_text_subgoal':
         logger.info(f"Using input/output langs at {cfg.gru_text_subgoal.input_lang_path}/{cfg.gru_text_subgoal.output_lang_path}")
-        datamodule = SequentialSubgoalDataModule(
+        return SequentialSubgoalDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
             validation_batch_size=cfg.datamodule.validation_batch_size,
@@ -119,12 +112,6 @@ def get_datamodule(cfg: DictConfig):
             use_small_dataset=cfg.datamodule.use_small_dataset,
             num_workers=cfg.datamodule.num_workers,
         )
-        if cfg.datamodule.fail_if_cannot_load:
-            if cfg.gru_text_subgoal.input_lang_path is not None and not datamodule.shared_input_lang.loaded_from_file:
-                raise ValueError(f"Could not load input langs from {cfg.gru_text.input_lang_path}")
-            if cfg.gru_text_subgoal.output_lang_path is not None and not datamodule.shared_output_lang.loaded_from_file:
-                raise ValueError(f"Could not load output langs from {cfg.gru_text.output_lang_path}")
-        return datamodule
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
@@ -143,6 +130,18 @@ def save_data_preprocessing(cfg: DictConfig, datamodule: LightningDataModule):
         if cfg_gru.save_output_lang_path:
             logger.info(f"Saving output lang at {cfg_gru.save_output_lang_path}")
             sequential_datamodule.shared_output_lang.save(cfg_gru.save_output_lang_path)
+
+
+def check_loaded_datamodule(cfg, datamodule):
+    if cfg.model_type == 'naive':
+        pass
+    if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
+        cfg_gru = cfg[cfg.model_type]
+        if cfg.datamodule.fail_if_cannot_load:
+            if cfg_gru.input_lang_path is not None and not datamodule.shared_input_lang.loaded_from_file:
+                raise ValueError(f"Could not load input langs from {cfg_gru.input_lang_path}")
+            if cfg_gru.output_lang_path is not None and not datamodule.shared_output_lang.loaded_from_file:
+                raise ValueError(f"Could not load output langs from {cfg_gru.output_lang_path}")
 
 
 @hydra.main(config_path="conf", config_name="config")
@@ -170,6 +169,9 @@ def main(cfg: DictConfig) -> None:
     datamodule.setup("validate")
     logger.info("train and valid have been setup")
     wandb_logger.log_text("train and valid have been setup")
+
+    # Checking loaded datamodule
+    check_loaded_datamodule(cfg, datamodule)
 
     if cfg.datamodule.save_data_preprocessing:
         save_data_preprocessing(cfg, datamodule)
