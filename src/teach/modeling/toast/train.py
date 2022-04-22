@@ -113,7 +113,7 @@ def main(cfg: DictConfig) -> None:
         raise ValueError(f"Unknown model type {cfg.model_type}")
     logger.info(f"Model type: {cfg.model_type}")
     logger.info(f"loading from path: {cfg.data_folder_path}")
-    logger.info(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_path} (model_load_name: {cfg.model_load_name})")
+    logger.info(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_pre_path} (model_load_name: {cfg.model_load_name})")
 
     datamodule = get_datamodule(cfg)
     datamodule.setup("fit")
