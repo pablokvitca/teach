@@ -119,7 +119,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             loss += F.cross_entropy(
                 decoder_output,
-                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(dtype=torch.float).squeeze(dim=1)
+                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(device=self.device, dtype=torch.float).squeeze(dim=1)
             )
 
             if self.teacher_forcing:
@@ -141,7 +141,8 @@ class GRUTextOnlyModel(pl.LightningModule):
         did_output_eos = False
         y_token_idx = 0
         while not did_output_eos:
-            y_token = y[y_token_idx] if y_token_idx < y.size(0) else torch.Tensor(self.output_lang.EOS_token_index)
+            y_token = y[y_token_idx] if y_token_idx < y.size(0) else \
+                torch.Tensor([self.output_lang.EOS_token_index]).to(device=self.device, dtype=torch.long).unsqueeze(0)
             if y_token.dim() == 0:
                 y_token = y_token.unsqueeze(0)
             y_token_idx += 1
@@ -157,7 +158,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             loss += F.cross_entropy(
                 decoder_output,
-                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(dtype=torch.float).squeeze(dim=1)
+                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(devive=self.device, dtype=torch.float).squeeze(dim=1)
             )
 
             decoder_input = decoder_output.topk(1)[1].squeeze().detach()
