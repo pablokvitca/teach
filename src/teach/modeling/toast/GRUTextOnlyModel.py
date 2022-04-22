@@ -158,7 +158,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             loss += F.cross_entropy(
                 decoder_output,
-                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(devive=self.device, dtype=torch.float).squeeze(dim=1)
+                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(device=self.device, dtype=torch.float).squeeze(dim=1)
             )
 
             decoder_input = decoder_output.topk(1)[1].squeeze().detach()
