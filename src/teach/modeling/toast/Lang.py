@@ -32,9 +32,6 @@ class Lang:
 
     def load(self, lang_path):
         _lang = pickle.load(open(lang_path, 'rb'))
-        self.word2index = _lang["word2index"]
-        self.word2count = _lang["word2count"]
-        self.index2word = _lang["index2word"]
         self.n_words = _lang["n_words"]
         self.SOS_token_index = _lang["SOS_token_index"]
         self.SOS_token = _lang["SOS_token"]
@@ -44,12 +41,15 @@ class Lang:
         self.PAD_token = _lang["PAD_token"]
         self.UNK_token_index = _lang["UNK_token_index"]
         self.UNK_token = _lang["UNK_token"]
+        self.word2index = defaultdict(lambda: self.UNK_token_index, _lang["word2index"])
+        self.word2count = defaultdict(lambda: 0, _lang["word2count"])
+        self.index2word = defaultdict(lambda: self.UNK_token, _lang["index2word"])
 
     def save(self, lang_path):
         pickle.dump({
-            "word2index": self.word2index,
-            "word2count": self.word2count,
-            "index2word": self.index2word,
+            "word2index": dict(self.word2index),
+            "word2count": dict(self.word2count),
+            "index2word": dict(self.index2word),
             "n_words": self.n_words,
             "SOS_token_index": self.SOS_token_index,
             "SOS_token": self.SOS_token,
