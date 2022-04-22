@@ -58,3 +58,4 @@ datamodule:
   batch_size: 128
   use_small_dataset: False
   save_data_preprocessing: False
+  fail_if_cannot_load: False

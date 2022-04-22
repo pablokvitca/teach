@@ -79,7 +79,8 @@ def get_datamodule(cfg: DictConfig):
         )
     if cfg.model_type == 'gru_text':
         logger.info(f"Using input/output langs at {cfg.gru_text.input_lang_path}/{cfg.gru_text.output_lang_path}")
-        return SequentialDataModule(
+
+        datamodule = SequentialDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
             input_lang_path=cfg.gru_text.input_lang_path,
@@ -90,9 +91,15 @@ def get_datamodule(cfg: DictConfig):
             use_small_dataset=cfg.datamodule.use_small_dataset,
             num_workers=cfg.datamodule.num_workers,
         )
+        if cfg.datamodule.fail_if_cannot_load:
+            if cfg.gru_text.input_lang_path is not None and not datamodule.shared_input_lang.loaded_from_file:
+                raise ValueError(f"Could not load input langs from {cfg.gru_text.input_lang_path}")
+            if cfg.gru_text.output_lang_path is not None and not datamodule.shared_output_lang.loaded_from_file:
+                raise ValueError(f"Could not load output langs from {cfg.gru_text.output_lang_path}")
+        return datamodule
     if cfg.model_type == 'gru_text_subgoal':
         logger.info(f"Using input/output langs at {cfg.gru_text_subgoal.input_lang_path}/{cfg.gru_text_subgoal.output_lang_path}")
-        return SequentialSubgoalDataModule(
+        datamodule = SequentialSubgoalDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
             input_lang_path=cfg.gru_text_subgoal.input_lang_path,
@@ -105,6 +112,12 @@ def get_datamodule(cfg: DictConfig):
             use_small_dataset=cfg.datamodule.use_small_dataset,
             num_workers=cfg.datamodule.num_workers,
         )
+        if cfg.datamodule.fail_if_cannot_load:
+            if cfg.gru_text_subgoal.input_lang_path is not None and not datamodule.shared_input_lang.loaded_from_file:
+                raise ValueError(f"Could not load input langs from {cfg.gru_text.input_lang_path}")
+            if cfg.gru_text_subgoal.output_lang_path is not None and not datamodule.shared_output_lang.loaded_from_file:
+                raise ValueError(f"Could not load output langs from {cfg.gru_text.output_lang_path}")
+        return datamodule
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
