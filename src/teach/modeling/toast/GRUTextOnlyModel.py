@@ -57,19 +57,19 @@ class GRUTextOnlyModel(pl.LightningModule):
 
     def forward(
             self,
-            current_image_tensor,
+            current_image_tensor,  # ignored
             text_tensor,
-            previous_actions_tensor,
+            previous_actions_tensor,  # ignored
             pre_encoder_output=None,
             pre_decoder_output=None,
             return_only_action_probs=True
     ):
-        batch_size = text_tensor.size(1)
+        batch_size = text_tensor.size(0)
         if pre_encoder_output is None:
             encoder_outputs = torch.zeros(self.max_length, self.encoder_hidden_size, device=self.device)
             encoder_hidden = self.encoder.init_hidden(batch_size)
-            for input_token_tensor_idx in range(text_tensor.size(0)):
-                encoder_input = text_tensor[input_token_tensor_idx]
+            for input_token_tensor_idx in range(text_tensor.size(1)):
+                encoder_input = text_tensor[:, input_token_tensor_idx]
                 if encoder_input.dim() == 0:
                     encoder_input = encoder_input.unsqueeze(0)
                 encoder_output, encoder_hidden = self.encoder.forward(
@@ -107,8 +107,8 @@ class GRUTextOnlyModel(pl.LightningModule):
         x_text = x
         pre_encoder_output, pre_decoder_output = None, None
         loss = torch.zeros(1, device=self.device)
-        for y_token_idx in range(y.size(0)):
-            y_token = y[y_token_idx]
+        for y_token_idx in range(y.size(1)):
+            y_token = y[:, y_token_idx]
             if y_token.dim() == 0:
                 y_token = y_token.unsqueeze(0)
             pre_encoder_output, (decoder_output, decoder_hidden) = \
@@ -150,7 +150,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         y_token_idx = 0
         max_output_length = min(self.max_output_length, y.size(0) + self.output_length_delta)
         while not did_output_eos and y_token_idx < max_output_length:
-            y_token = y[y_token_idx] if y_token_idx < y.size(0) else \
+            y_token = y[:, y_token_idx] if y_token_idx < y.size(1) else \
                 torch.Tensor([self.output_lang.EOS_token_index]).to(device=self.device, dtype=torch.long).unsqueeze(0)
             if y_token.dim() == 0:
                 y_token = y_token.unsqueeze(0)

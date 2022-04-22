@@ -23,6 +23,7 @@ gru_text:
   auto_lr_find: False
   max_length: 1000
   max_output_length: 1000
+  output_length_delta: 10
   use_single_optimizer: False
 gru_text_subgoal:
   input_lang_path: /Volumes/Extreme SSD/teach_subgoal_input_lang.pickle
@@ -36,6 +37,7 @@ gru_text_subgoal:
   auto_lr_find: False
   max_length: 1000
   max_output_length: 1000
+  output_length_delta: 10
   use_subgoal_history: True
   use_subgoal_future: True
   use_commander_language: True
