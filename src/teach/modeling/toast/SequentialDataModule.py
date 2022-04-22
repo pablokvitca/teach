@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import pickle
 import re
 import unicodedata
 from typing import Optional
@@ -18,70 +17,9 @@ from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
 from teach.modeling.et.alfred.nn.transforms import Transforms
+from teach.modeling.toast.Lang import Lang
 
 logger = create_logger(__name__, level=logging.INFO)
-
-SOS_token = 0
-EOS_token = 1
-PAD_token = 2
-
-
-class Lang:
-    def __init__(self, lang_path=None):
-        self.word2index = {}
-        self.word2count = {}
-        self.SOS_token_index, self.SOS_token = 0, '<SOS>'
-        self.EOS_token_index, self.EOS_token = 1, '<EOS>'
-        self.PAD_token_index, self.PAD_token = 2, '<PAD>'
-        self.index2word = {
-            self.SOS_token_index: self.SOS_token,
-            self.EOS_token_index: self.EOS_token,
-            self.PAD_token_index: self.PAD_token
-        }
-        self.n_words = 3  # Count SOS and EOS
-        if lang_path is not None:
-            if os.path.exists(lang_path):
-                self.load(lang_path)
-
-    def load(self, lang_path):
-        _lang = pickle.load(open(lang_path, 'rb'))
-        self.word2index = _lang["word2index"]
-        self.word2count = _lang["word2count"]
-        self.index2word = _lang["index2word"]
-        self.n_words = _lang["n_words"]
-        self.SOS_token_index = _lang["SOS_token_index"]
-        self.SOS_token = _lang["SOS_token"]
-        self.EOS_token_index = _lang["EOS_token_index"]
-        self.EOS_token = _lang["EOS_token"]
-        self.PAD_token_index = _lang["PAD_token_index"]
-        self.PAD_token = _lang["PAD_token"]
-
-    def save(self, lang_path):
-        pickle.dump({
-            "word2index": self.word2index,
-            "word2count": self.word2count,
-            "index2word": self.index2word,
-            "n_words": self.n_words,
-            "SOS_token_index": self.SOS_token_index,
-            "SOS_token": self.SOS_token,
-            "EOS_token_index": self.EOS_token_index,
-            "EOS_token": self.EOS_token,
-            "PAD_token_index": self.PAD_token_index,
-            "PAD_token": self.PAD_token,
-        }, open(lang_path, 'wb'))
-
-    def add_sentence(self, sentence):
-        for word in sentence.split(' '):
-            self.add_word(word)
-
-    def add_word(self, word, override_index=None):
-        if word not in self.word2index:
-            self.word2index[word] = self.n_words
-            self.word2count[word] = 1
-            self.index2word[self.n_words if override_index is None else override_index] = word
-            self.n_words += 1
-        else:
-            self.word2count[word] += 1
 
 
 class SequentialTEACHDataset(Dataset):
@@ -90,13 +28,14 @@ class SequentialTEACHDataset(Dataset):
             data_dir: str,
             split_name: str,
             include_x_test: bool,
-            include_x_cur_image: bool,
-            include_x_prev_actions: bool,
+            include_x_cur_image: bool = False,  # not implemented
+            include_x_prev_actions: bool = False,  # not implemented
             input_lang_path=None,
             output_lang_path=None,
             input_lang=None,
             output_lang=None,
             token_pad_length=300,
+            extend_language=True,
     ):
         self.data_dir = data_dir
         self.split_name = split_name
@@ -123,6 +62,8 @@ class SequentialTEACHDataset(Dataset):
         self.input_lang = input_lang or Lang(self.input_lang_path)
         self.output_lang_path = output_lang_path if os.path.exists(output_lang_path) else None
         self.output_lang = output_lang or Lang(self.output_lang_path)
+
+        self.extend_language = extend_language
 
         self.data = self._load_data()
 
@@ -188,7 +129,7 @@ class SequentialTEACHDataset(Dataset):
                 edh_instance = json.load(f)
                 if self.include_x_text:
                     text_from_instance = SequentialTEACHDataset.get_text_tokens_from_instance(edh_instance)
-                    if self.input_lang_path is None:
+                    if self.input_lang_path is None and self.extend_language:
                         [self.input_lang.add_word(word) for word in text_from_instance]
                     instance_text_tensor = self.tensorize_input_language(text_from_instance)
 
@@ -199,12 +140,13 @@ class SequentialTEACHDataset(Dataset):
                         filtered_actions.append(action)
                         filtered_images.append(img_filename)
 
-                if self.include_x_cur_image:
-                    instance_images = [
-                        os.path.join(edh_instance["game_id"], img_filename) for img_filename in filtered_images
-                    ]
+                # currently not used
+                # if self.include_x_cur_image:
+                #     instance_images = [
+                #         os.path.join(edh_instance["game_id"], img_filename) for img_filename in filtered_images
+                #     ]
 
-                if self.output_lang_path is None:
+                if self.output_lang_path is None and self.extend_language:
                     [self.output_lang.add_word(act["action_name"], override_index=act["action_id"])
                      for act in filtered_actions]
                 instance_actions = self.tensorize_action_language([act["action_name"] for act in filtered_actions])
@@ -296,7 +238,7 @@ class SequentialDataModule(LightningDataModule):
 
         return batch, (x_lengths, y_lengths), (x_mask, y_mask)
 
-    def load_dataset(self, split_name) -> Dataset:
+    def load_dataset(self, split_name, extend_language=False) -> Dataset:
         dataset = SequentialTEACHDataset(
             self.data_dir,
             split_name,
@@ -307,6 +249,7 @@ class SequentialDataModule(LightningDataModule):
             output_lang_path=self.output_lang_path,
             input_lang=self.shared_input_lang,
             output_lang=self.shared_output_lang,
+            extend_language=extend_language,
         )
         self.shared_input_lang = dataset.input_lang
         self.shared_output_lang = dataset.output_lang
@@ -316,15 +259,15 @@ class SequentialDataModule(LightningDataModule):
         logger.info(f"Loading dataset for stage {stage}")
         if (stage in ["train", "fit"] or stage is None) and self.train_dataset is None:
             split_name = 'train' if not self.use_small_dataset else 'train_small'
-            self.train_dataset = self.load_dataset(split_name)
+            self.train_dataset = self.load_dataset(split_name, extend_language=True)
         if (stage in ["val", "valid", "validate"] or stage is None) and self.valid_seen_dataset is None:
-            self.valid_seen_dataset = self.load_dataset('valid_seen')
+            self.valid_seen_dataset = self.load_dataset('valid_seen', extend_language=False)
         if (stage in ["val_unseen", "valid_unseen", "validate_unseen"] or stage is None) and self.valid_unseen_dataset is None:
-            self.valid_unseen_dataset = self.load_dataset('valid_unseen')
+            self.valid_unseen_dataset = self.load_dataset('valid_unseen', extend_language=False)
         if (stage == "test" or stage is None) and self.test_seen_dataset is None:
-            self.test_seen_dataset = self.load_dataset('test_seen')
+            self.test_seen_dataset = self.load_dataset('test_seen', extend_language=False)
         if (stage == "test_unseen" or stage is None) and self.test_unseen_dataset is None:
-            self.test_unseen_dataset = self.load_dataset('test_unseen')
+            self.test_unseen_dataset = self.load_dataset('test_unseen', extend_language=False)
 
     def _get_dataloader(self, dataset):
         return DataLoader(
