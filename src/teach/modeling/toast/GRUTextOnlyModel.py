@@ -105,6 +105,8 @@ class GRUTextOnlyModel(pl.LightningModule):
         loss = torch.zeros(1, device=self.device)
         for y_token_idx in range(y.size(0)):
             y_token = y[y_token_idx]
+            if y_token.dim() == 0:
+                y_token = y_token.unsqueeze(0)
             pre_encoder_output, (decoder_output, decoder_hidden) = \
                 self.forward(
                     None,  # image input ignored
@@ -139,7 +141,9 @@ class GRUTextOnlyModel(pl.LightningModule):
         did_output_eos = False
         y_token_idx = 0
         while not did_output_eos:
-            y_token = y[y_token_idx] if y_token_idx < y.size(0) else self.output_lang.EOS_token_index
+            y_token = y[y_token_idx] if y_token_idx < y.size(0) else torch.Tensor(self.output_lang.EOS_token_index)
+            if y_token.dim() == 0:
+                y_token = y_token.unsqueeze(0)
             y_token_idx += 1
             pre_encoder_output, (decoder_output, decoder_hidden) = \
                 self.forward(
