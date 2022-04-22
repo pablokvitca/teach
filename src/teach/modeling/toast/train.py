@@ -138,9 +138,11 @@ def check_loaded_datamodule(cfg, datamodule):
     if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
         cfg_gru = cfg[cfg.model_type]
         if cfg.datamodule.fail_if_cannot_load:
-            if cfg_gru.input_lang_path is not None and not datamodule.shared_input_lang.loaded_from_file:
+            if (cfg_gru.input_lang_path is not None and cfg_gru.input_lang_path != 'None') \
+                    and not datamodule.shared_input_lang.loaded_from_file:
                 raise ValueError(f"Could not load input langs from {cfg_gru.input_lang_path}")
-            if cfg_gru.output_lang_path is not None and not datamodule.shared_output_lang.loaded_from_file:
+            if (cfg_gru.output_lang_path is not None and cfg_gru.output_lang_path != 'None') \
+                    and not datamodule.shared_output_lang.loaded_from_file:
                 raise ValueError(f"Could not load output langs from {cfg_gru.output_lang_path}")
 
 
