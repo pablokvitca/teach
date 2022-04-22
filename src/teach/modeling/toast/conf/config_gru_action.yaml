@@ -1,4 +1,4 @@
-model_type: gru_text_subgoal
+model_type: gru_text
 known_model_data_types:
   naive
   gru_text
@@ -15,7 +15,7 @@ gru_text:
   input_lang_path: /home/sethsclass/teach_input_lang.pickle
   output_lang_path: /home/sethsclass/teach_output_lang.pickle
   save_input_lang_path: /home/sethsclass/new_teach_input_lang.pickle
-  save_output_lang_path: /home/sethsclass/new_teach_output_lang.pickle
+  save_output_lang_path: /home/sethsclass/new_teach_input_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -26,10 +26,10 @@ gru_text:
   output_length_delta: 10
   use_single_optimizer: False
 gru_text_subgoal:
-  input_lang_path: None
+  input_lang_path: /home/sethsclass/teach_subgoal_input_lang.pickle
   output_lang_path: /home/sethsclass/teach_subgoal_output_lang.pickle
-  save_input_lang_path: /home/sethsclass/new_teach_subgoal_input_lang.pickle
-  save_output_lang_path: /home/sethsclass/new_teach_subgoal_output_lang.pickle
+  save_input_lang_path: /home/sethsclass/new_teach_input_lang.pickle
+  save_output_lang_path: /home/sethsclass/new_teach_input_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -69,6 +69,6 @@ datamodule:
 wandb:
   project: toast
   offline: False
-  group_name: gru_text_subgoal_test
+  group_name: gru_text_test
   log_model: False
   entity: 'nlp4robots-toast'
