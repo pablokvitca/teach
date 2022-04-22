@@ -133,7 +133,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         did_output_eos = False
         y_token_idx = 0
         while not did_output_eos:
-            y_token = y[y_token_idx] if y_token_idx < y.size(0) else self.EOS_token
+            y_token = y[y_token_idx] if y_token_idx < y.size(0) else self.output_lang.EOS_token_index
             y_token_idx += 1
             pre_encoder_output, (decoder_output, decoder_hidden) = \
                 self.forward(
@@ -152,7 +152,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             decoder_input = decoder_output.topk(1)[1].squeeze().detach()
 
-            if decoder_input.item() == self.EOS_token:
+            if decoder_input.item() == self.output_lang.EOS_token_index:
                 did_output_eos = True
 
             pre_decoder_output = (decoder_input, decoder_hidden)
