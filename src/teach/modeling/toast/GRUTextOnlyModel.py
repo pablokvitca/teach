@@ -6,6 +6,8 @@ import pytorch_lightning as pl
 from torch.optim import Adam
 
 from teach.logger import create_logger
+from teach.modeling.toast.Lang import Lang
+
 logger = create_logger(__name__)
 
 
@@ -13,10 +15,10 @@ class GRUTextOnlyModel(pl.LightningModule):
 
     def __init__(
             self,
-            input_lang_n_words,
-            encoder_hidden_size,
-            decoder_hidden_size,
-            output_lang_n_words,
+            input_lang: Lang,
+            output_lang: Lang,
+            encoder_hidden_size: int,
+            decoder_hidden_size: int,
             teacher_forcing=False,
             decoder_dropout_p=0.1,
             learning_rate=0.001,
@@ -26,10 +28,10 @@ class GRUTextOnlyModel(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
-        self.input_lang_n_words = input_lang_n_words
+        self.input_lang: Lang = input_lang
+        self.output_lang: Lang = output_lang
         self.encoder_hidden_size = encoder_hidden_size
         self.decoder_hidden_size = decoder_hidden_size
-        self.output_lang_n_words = output_lang_n_words
         self.teacher_forcing = teacher_forcing
         self.decoder_dropout_p = decoder_dropout_p
         self.learning_rate = learning_rate
@@ -73,7 +75,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
         # Setup input for decoder
         if pre_decoder_output is None:
-            decoder_input = torch.tensor([[self.SOS_token] for _ in range(batch_size)], device=self.device)
+            decoder_input = torch.tensor([[self.input_lang.SOS_token_index] for _ in range(batch_size)], device=self.device)
             decoder_hidden = encoder_hidden
         else:
             decoder_input, decoder_hidden = pre_decoder_output
@@ -91,11 +93,12 @@ class GRUTextOnlyModel(pl.LightningModule):
             return (encoder_outputs, encoder_hidden), (decoder_output, decoder_hidden)
 
     def training_step(self, batch, batch_idx, optimizer_idx=None) -> STEP_OUTPUT:
+        # NOTE: if modified, also modify the validation step
         x, y = batch[0]
         x_text = x
         pre_encoder_output, pre_decoder_output = None, None
         loss = torch.zeros(1, device=self.device)
-        for y_token_idx in range(y.size()[0]):
+        for y_token_idx in range(y.size(0)):
             y_token = y[y_token_idx]
             pre_encoder_output, (decoder_output, decoder_hidden) = \
                 self.forward(
@@ -116,15 +119,48 @@ class GRUTextOnlyModel(pl.LightningModule):
                 decoder_input = y_token
             else:
                 decoder_input = decoder_output.topk(1)[1].squeeze().detach()
-                if decoder_input.item() == self.EOS_token:
+                if decoder_input.item() == self.output_lang.EOS_token_index:
                     break
             pre_decoder_output = (decoder_input, decoder_hidden)
         return loss.squeeze()
 
     def validation_step(self, batch, batch_idx):
-        # TODO: validation is wrong, needs to actually reimplement as the training step but stop on output of EOS token
-        loss = self.training_step(batch, batch_idx)
-        # TODO: compute (and log) accuracy, precision, recall, f1
+        # similar to the training step but stop on output of EOS token
+        x, y = batch[0]
+        x_text = x
+        pre_encoder_output, pre_decoder_output = None, None
+        loss = torch.zeros(1, device=self.device)
+        did_output_eos = False
+        y_token_idx = 0
+        while not did_output_eos:
+            y_token = y[y_token_idx] if y_token_idx < y.size(0) else self.EOS_token
+            y_token_idx += 1
+            pre_encoder_output, (decoder_output, decoder_hidden) = \
+                self.forward(
+                    None,  # image input ignored
+                    x_text,
+                    None,  # prev action input ignored
+                    pre_encoder_output=pre_encoder_output,
+                    pre_decoder_output=pre_decoder_output,
+                    return_only_action_probs=False
+                )
+
+            loss += F.cross_entropy(
+                decoder_output,
+                F.one_hot(y_token, num_classes=self.output_lang_n_words).to(dtype=torch.float).squeeze(dim=1)
+            )
+
+            decoder_input = decoder_output.topk(1)[1].squeeze().detach()
+
+            if decoder_input.item() == self.EOS_token:
+                did_output_eos = True
+
+            pre_decoder_output = (decoder_input, decoder_hidden)
+        loss = loss.squeeze()
+
+        # TODO: compute (and log, see below) accuracy, precision, recall, f1, hmm but sequence?
+        # TODO: find sequential metric to report instead
+
         self.log("val_loss", loss)
         return loss
 

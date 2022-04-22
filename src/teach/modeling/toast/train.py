@@ -50,10 +50,10 @@ def load_or_create_model(cfg: DictConfig, datamodule):
         if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
             cfg_gru = cfg[cfg.model_type]
             return GRUTextOnlyModel(
-                datamodule.train_dataset.input_lang.n_words,
+                datamodule.train_dataset.input_lang,
+                datamodule.train_dataset.output_lang,
                 cfg_gru.encoder_hidden_size,
                 cfg_gru.decoder_hidden_size,
-                datamodule.train_dataset.output_lang.n_words,
                 teacher_forcing=cfg_gru.teacher_forcing,
                 decoder_dropout_p=cfg_gru.decoder_dropout_p,
                 learning_rate=cfg.trainer.lr,

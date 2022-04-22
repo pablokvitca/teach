@@ -59,9 +59,9 @@ class SequentialTEACHDataset(Dataset):
         # assert (output_lang_path is not None) != (output_lang is not None)
 
         self.input_lang_path = input_lang_path if os.path.exists(input_lang_path) else None
-        self.input_lang = input_lang or Lang(self.input_lang_path)
+        self.input_lang: Lang = input_lang or Lang(self.input_lang_path)
         self.output_lang_path = output_lang_path if os.path.exists(output_lang_path) else None
-        self.output_lang = output_lang or Lang(self.output_lang_path)
+        self.output_lang: Lang = output_lang or Lang(self.output_lang_path)
 
         self.extend_language = extend_language
 
@@ -167,24 +167,7 @@ class SequentialTEACHDataset(Dataset):
 
 
 class SequentialDataModule(LightningDataModule):
-    """
-    This module can be configured to preprocess that 3 modes of data in different ways, this is done *before* feeding
-    to an actual model.
-    This module is meant to have a "naive" representation of the output, where the sequence nature of the Y is ignored,
-    this is meant for testing and as a baseline. Therefor the module loads the episodes from the dataset and splits
-    them into separate data instances where each X is a tuple with:
-        - x_text, the full text for the episode, vectorized to tensors
-        - x_cur_image, the image of the agent before the action is selected, as 3D tensors (width, height, channel)
-        - x_prev_actions, the list of previous actions, as tensors
-    And where each Y is a single action one hot vector, as a tensor
 
-    Each of the components of X can be disabled, so it is not included on the resulting data, using the arguments:
-        - `include_x_text`
-        - `include_x_cur_image`
-        - `include_x_prev_actions`
-
-    This uses sequences for text and prev actions.
-    """
     def __init__(self,
                  data_dir: str,
                  batch_size: int,
