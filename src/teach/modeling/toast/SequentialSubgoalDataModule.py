@@ -100,7 +100,7 @@ class SequentialTEACHSubgoalDataset(Dataset):
             with open(os.path.join(edh_dir, file)) as f:
                 edh_instance = json.load(f)
                 if self.include_x_text:
-                    text_from_instance = SequentialTEACHSubgoalDataset.get_text_tokens_from_instance(edh_instance)
+                    text_from_instance = self.get_text_tokens_from_instance(edh_instance)
                     if self.input_lang_path is None and self.extend_language:
                         [self.input_lang.add_word(word) for word in text_from_instance]
                     instance_text_tensor = self.tensorize_input_language(text_from_instance)
