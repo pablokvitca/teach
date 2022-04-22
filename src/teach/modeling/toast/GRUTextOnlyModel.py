@@ -24,6 +24,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             learning_rate=0.001,
             max_length=1000,
             max_output_length=1000,
+            output_length_delta=1,
             use_single_optimizer=False,
     ):
         super().__init__()
@@ -38,6 +39,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         self.learning_rate = learning_rate
         self.max_length = max_length
         self.max_output_length = max_output_length
+        self.output_length_delta = output_length_delta
 
         self.encoder = EncoderRNN(
             self.input_lang.n_words,
@@ -132,7 +134,11 @@ class GRUTextOnlyModel(pl.LightningModule):
                 if decoder_input.item() == self.output_lang.EOS_token_index:
                     break
             pre_decoder_output = (decoder_input, decoder_hidden)
-        return loss.squeeze()
+
+        loss = loss.squeeze()
+        self.log("train_loss", loss)
+
+        return loss
 
     def validation_step(self, batch, batch_idx):
         # similar to the training step but stop on output of EOS token
@@ -142,7 +148,8 @@ class GRUTextOnlyModel(pl.LightningModule):
         loss = torch.zeros(1, device=self.device)
         did_output_eos = False
         y_token_idx = 0
-        while not did_output_eos and y_token_idx < self.max_output_length:
+        max_output_length = min(self.max_output_length, y.size(0) + self.output_length_delta)
+        while not did_output_eos and y_token_idx < max_output_length:
             y_token = y[y_token_idx] if y_token_idx < y.size(0) else \
                 torch.Tensor([self.output_lang.EOS_token_index]).to(device=self.device, dtype=torch.long).unsqueeze(0)
             if y_token.dim() == 0:
