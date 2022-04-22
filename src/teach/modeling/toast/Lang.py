@@ -14,9 +14,9 @@ class Lang:
         self.EOS_token_index, self.EOS_token = 1, '<EOS>'
         self.PAD_token_index, self.PAD_token = 2, '<PAD>'
         self.UNK_token_index, self.UNK_token = 3, '<UNK>'
-        self.word2index = defaultdict(lambda: self.UNK_token_index)
-        self.word2count = defaultdict(lambda: 0)
-        self.index2word = defaultdict(lambda: self.UNK_token, {
+        self.word2index = defaultdict(self._word2index_default)
+        self.word2count = defaultdict(self._word2count_default)
+        self.index2word = defaultdict(self._index2word_default, {
             self.SOS_token_index: self.SOS_token,
             self.EOS_token_index: self.EOS_token,
             self.PAD_token_index: self.PAD_token,
@@ -30,6 +30,15 @@ class Lang:
                 self.loaded_from_file = True
                 self.load(lang_path)
 
+    def _word2index_default(self):
+        return self.UNK_token_index
+
+    def _word2count_default(self):
+        return 0
+
+    def _index2word_default(self):
+        return self.UNK_token
+
     def load(self, lang_path):
         _lang = pickle.load(open(lang_path, 'rb'))
         self.n_words = _lang["n_words"]
@@ -41,9 +50,9 @@ class Lang:
         self.PAD_token = _lang["PAD_token"]
         self.UNK_token_index = _lang["UNK_token_index"]
         self.UNK_token = _lang["UNK_token"]
-        self.word2index = defaultdict(lambda: self.UNK_token_index, _lang["word2index"])
-        self.word2count = defaultdict(lambda: 0, _lang["word2count"])
-        self.index2word = defaultdict(lambda: self.UNK_token, _lang["index2word"])
+        self.word2index = defaultdict(self._word2index_default, _lang["word2index"])
+        self.word2count = defaultdict(self._word2count_default, _lang["word2count"])
+        self.index2word = defaultdict(self._index2word_default, _lang["index2word"])
 
     def save(self, lang_path):
         pickle.dump({

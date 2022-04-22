@@ -69,3 +69,4 @@ wandb:
   offline: False
   run_name: gru_text_test
   log_model: False
+  entity: 'nlp4robots-toast'

@@ -147,6 +147,7 @@ def save_data_preprocessing(cfg: DictConfig, datamodule: LightningDataModule):
 @hydra.main(config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
     wandb_logger = WandbLogger(
+        entity=cfg.wandb.entity,
         project=cfg.wandb.project,
         offline=cfg.wandb.offline,
         name=cfg.wandb.run_name,
@@ -194,7 +195,7 @@ def main(cfg: DictConfig) -> None:
             devices = cfg.trainer.fallback_devices
 
     trainer = Trainer(
-        accelerator=cfg.trainer.acc_device,
+        accelerator=cfg.trainer.acc_device if GPUAccelerator.is_available() else 'cpu',
         devices=devices,
         auto_lr_find=cfg.trainer.auto_lr_find and cfg[cfg.model_type].auto_lr_find,
         track_grad_norm=cfg.trainer.track_grad_norm,
