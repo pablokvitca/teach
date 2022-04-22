@@ -21,6 +21,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             decoder_dropout_p=0.1,
             learning_rate=0.001,
             max_length=1000,
+            use_single_optimizer=False,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -46,8 +47,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             max_length=self.max_length
         )
 
-        self.SOS_token = 0  # TODO: init sos token!
-        self.EOS_token = 1  # TODO: init eos token!
+        self.use_single_optimizer = use_single_optimizer
 
     def forward(
             self,
@@ -109,7 +109,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             loss += F.cross_entropy(
                 decoder_output,
-                F.one_hot(y_token, num_classes=19).to(dtype=torch.float).squeeze(dim=1)
+                F.one_hot(y_token, num_classes=self.output_lang_n_words).to(dtype=torch.float).squeeze(dim=1)
             )
 
             if self.teacher_forcing:
@@ -122,13 +122,18 @@ class GRUTextOnlyModel(pl.LightningModule):
         return loss.squeeze()
 
     def validation_step(self, batch, batch_idx):
+        # TODO: validation is wrong, needs to actually reimplement as the training step but stop on output of EOS token
         loss = self.training_step(batch, batch_idx)
+        # TODO: compute (and log) accuracy, precision, recall, f1
         self.log("val_loss", loss)
         return loss
 
     def configure_optimizers(self):
-        return Adam(self.encoder.parameters(), lr=self.learning_rate),\
-               Adam(self.decoder.parameters(), lr=self.learning_rate)
+        if self.use_single_optimizer:
+            return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        else:
+            return Adam(self.encoder.parameters(), lr=self.learning_rate), \
+                   Adam(self.decoder.parameters(), lr=self.learning_rate)
 
 
 class EncoderRNN(pl.LightningModule):
@@ -140,11 +145,8 @@ class EncoderRNN(pl.LightningModule):
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
 
-    def forward(self, input: Tensor, hidden):
-        batch_size = input.size(0)
-        # if self.input_size <= input.max():
-        #     logger.error(f"UNKNOWN TOKEN! # of known tokens: {self.input_size}, looking for {input.max()}")
-        #     logger.error(f"{input}")
+    def forward(self, _input: Tensor, hidden):
+        batch_size = _input.size(0)
         embedded = self.embedding(input).view(1, batch_size, -1)
         output, hidden = self.gru(embedded, hidden)
         return output, hidden
@@ -168,9 +170,9 @@ class AttnDecoderRNN(pl.LightningModule):
         self.gru = nn.GRU(self.hidden_size, self.hidden_size)
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
-    def forward(self, input, hidden, encoder_outputs):
-        batch_size = input.size(0)
-        embedded = self.embedding(input).view(1, batch_size, -1)
+    def forward(self, _input, hidden, encoder_outputs):
+        batch_size = _input.size(0)
+        embedded = self.embedding(_input).view(1, batch_size, -1)
         embedded = self.dropout(embedded)
 
         attn_weights = F.softmax(

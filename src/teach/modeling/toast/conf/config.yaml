@@ -20,6 +20,7 @@ gru_text:
   decoder_dropout_p: 0.5
   auto_lr_find: False
   max_length: 1000
+  use_single_optimizer: False
 gru_text_subgoal:
   input_lang_path: /home/sethsclass/teach_input_lang.pickle
   output_lang_path: /home/sethsclass/teach_output_lang.pickle
@@ -33,6 +34,7 @@ gru_text_subgoal:
   use_subgoal_future: True
   use_commander_language: True
   use_follower_language: True
+  use_single_optimizer: False
 trainer:
   checkpoints_save_top_k: 3
   acc_device: gpu

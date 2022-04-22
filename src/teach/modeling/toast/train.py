@@ -48,21 +48,24 @@ def load_or_create_model(cfg: DictConfig, datamodule):
                 len(all_agent_actions)  # output_layer_size
             )
         if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
+            cfg_gru = cfg[cfg.model_type]
             return GRUTextOnlyModel(
                 datamodule.train_dataset.input_lang.n_words,
-                cfg.gru_text.encoder_hidden_size,
-                cfg.gru_text.decoder_hidden_size,
+                cfg_gru.encoder_hidden_size,
+                cfg_gru.decoder_hidden_size,
                 datamodule.train_dataset.output_lang.n_words,
-                teacher_forcing=cfg.gru_text.teacher_forcing,
-                decoder_dropout_p=cfg.gru_text.decoder_dropout_p,
+                teacher_forcing=cfg_gru.teacher_forcing,
+                decoder_dropout_p=cfg_gru.decoder_dropout_p,
                 learning_rate=cfg.trainer.lr,
-                max_length=cfg.gru_text.max_length,
+                max_length=cfg_gru.max_length,
+                use_single_optimizer=cfg_gru.use_single_optimizer,
             )
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
 def get_datamodule(cfg: DictConfig):
     if cfg.model_type == 'naive':
+        logger.info(f"Using gensim embeddings from {cfg.naive.wv2_path}")
         return NaiveDataModule(
             cfg.data_folder_path,
             cfg.naive.wv2_path,
@@ -73,6 +76,7 @@ def get_datamodule(cfg: DictConfig):
             num_workers=cfg.datamodule.num_workers,
         )
     if cfg.model_type == 'gru_text':
+        logger.info(f"Using input/output langs at {cfg.gru_text.input_lang_path}/{cfg.gru_text.output_lang_path}")
         return SequentialDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
@@ -85,6 +89,7 @@ def get_datamodule(cfg: DictConfig):
             num_workers=cfg.datamodule.num_workers,
         )
     if cfg.model_type == 'gru_text_subgoal':
+        logger.info(f"Using input/output langs at {cfg.gru_text_subgoal.input_lang_path}/{cfg.gru_text_subgoal.output_lang_path}")
         return SequentialSubgoalDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
@@ -107,8 +112,6 @@ def main(cfg: DictConfig) -> None:
         raise ValueError(f"Unknown model type {cfg.model_type}")
     logger.info(f"Model type: {cfg.model_type}")
     logger.info(f"loading from path: {cfg.data_folder_path}")
-    logger.info(f"Using gensim embeddings from {cfg.naive.wv2_path}")
-    logger.info(f"Using input/output langs at {cfg.gru_text.input_lang_path}/{cfg.gru_text.output_lang_path}")
     logger.info(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_path} (model_load_name: {cfg.model_load_name})")
 
     datamodule = get_datamodule(cfg)
