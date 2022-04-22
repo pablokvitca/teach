@@ -136,7 +136,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             pre_decoder_output = (decoder_input, decoder_hidden)
 
         loss = loss.squeeze()
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, batch_size=y.size(0))
 
         return loss
 
@@ -181,7 +181,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         # TODO: compute (and log, see below) accuracy, precision, recall, f1, hmm but sequence?
         # TODO: find sequential metric to report instead
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, batch_size=y.size(0))
         return loss
 
     def configure_optimizers(self):
