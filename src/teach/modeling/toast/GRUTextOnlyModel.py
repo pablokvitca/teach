@@ -183,7 +183,7 @@ class EncoderRNN(pl.LightningModule):
 
     def forward(self, _input: Tensor, hidden):
         batch_size = _input.size(0)
-        embedded = self.embedding(input).view(1, batch_size, -1)
+        embedded = self.embedding(_input).view(1, batch_size, -1)
         output, hidden = self.gru(embedded, hidden)
         return output, hidden
 
