@@ -150,7 +150,7 @@ def main(cfg: DictConfig) -> None:
         entity=cfg.wandb.entity,
         project=cfg.wandb.project,
         offline=cfg.wandb.offline,
-        name=cfg.wandb.run_name,
+        group=cfg.wandb.group_name,
         log_model=cfg.wandb.log_model,
         config=cfg,
     )
