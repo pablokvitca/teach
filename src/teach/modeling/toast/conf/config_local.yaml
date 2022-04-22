@@ -3,19 +3,19 @@ known_model_data_types:
   naive
   gru_text
   gru_text_subgoal
-data_folder_path: /home/sethsclass/teach-dataset
+data_folder_path: /Volumes/Extreme SSD/teach-dataset
 model_checkpoints_pre_path: ./model_checkpoints_out/
 model_load_name: epoch=0-step=44.ckpt
 naive:
-  wv2_path:  /home/sethsclass/GoogleNews-vectors-negative300.bin.gz
+  wv2_path:  /Volumes/Extreme SSD/GoogleNews-vectors-negative300.bin.gz
   x_text_pad_length: 100
   x_prev_action_pad_length: 100
   auto_lr_find: True
 gru_text:
-  input_lang_path: /home/sethsclass/teach_input_lang.pickle
-  output_lang_path: /home/sethsclass/teach_output_lang.pickle
-  save_input_lang_path: /home/sethsclass/new_teach_input_lang.pickle
-  save_output_lang_path: /home/sethsclass/new_teach_input_lang.pickle
+  input_lang_path: /Volumes/Extreme SSD/teach_input_lang.pickle
+  output_lang_path: /Volumes/Extreme SSD/teach_output_lang.pickle
+  save_input_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
+  save_output_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -25,10 +25,10 @@ gru_text:
   max_output_length: 1000
   use_single_optimizer: False
 gru_text_subgoal:
-  input_lang_path: /home/sethsclass/teach_subgoal_input_lang.pickle
-  output_lang_path: /home/sethsclass/teach_subgoal_output_lang.pickle
-  save_input_lang_path: /home/sethsclass/new_teach_input_lang.pickle
-  save_output_lang_path: /home/sethsclass/new_teach_input_lang.pickle
+  input_lang_path: /Volumes/Extreme SSD/teach_subgoal_input_lang.pickle
+  output_lang_path: /Volumes/Extreme SSD/teach_subgoal_output_lang.pickle
+  save_input_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
+  save_output_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True

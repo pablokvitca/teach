@@ -16,6 +16,8 @@ from teach.modeling.toast.NaiveMultimodalModel import NaiveMultiModalModel
 from teach.modeling.toast.SequentialDataModule import SequentialDataModule
 from teach.modeling.toast.SequentialSubgoalDataModule import SequentialSubgoalDataModule
 
+from pytorch_lightning.loggers import WandbLogger
+
 logger = create_logger(__name__, level=logging.INFO)
 
 
@@ -27,6 +29,7 @@ def load_or_create_model(cfg: DictConfig, datamodule):
     path = os.path.join(cfg.model_checkpoints_pre_path or '', cfg.model_type, cfg.model_load_name)
     if cfg.model_checkpoints_pre_path is not None and does_model_exist(path):
         logger.info(f"Loading model from {path}.")
+        wandb_logger = WandbLogger(name=cfg.model_type, project=cfg.wandb_project)
         if cfg.model_type == 'naive':
             return NaiveMultiModalModel.load_from_checkpoint(path)
         if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
@@ -143,24 +146,38 @@ def save_data_preprocessing(cfg: DictConfig, datamodule: LightningDataModule):
 
 @hydra.main(config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
+    wandb_logger = WandbLogger(
+        project=cfg.wandb.project,
+        offline=cfg.wandb.offline,
+        name=cfg.wandb.run_name,
+        log_model=cfg.wandb.log_model,
+        config=cfg,
+    )
+
     if cfg.model_type not in cfg.known_model_data_types:
         raise ValueError(f"Unknown model type {cfg.model_type}")
     logger.info(f"Model type: {cfg.model_type}")
+    wandb_logger.log_text(f"Model type: {cfg.model_type}")
     logger.info(f"loading from path: {cfg.data_folder_path}")
+    wandb_logger.log_text(f"loading from path: {cfg.data_folder_path}")
     logger.info(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_pre_path} (model_load_name: {cfg.model_load_name})")
+    wandb_logger.log_text(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_pre_path} (model_load_name: {cfg.model_load_name})")
 
     datamodule = get_datamodule(cfg)
     datamodule.setup("fit")
     datamodule.setup("validate")
     logger.info("train and valid have been setup")
+    wandb_logger.log_text("train and valid have been setup")
 
     if cfg.datamodule.save_data_preprocessing:
         save_data_preprocessing(cfg, datamodule)
         logger.info("data preprocessing saved")
+        wandb_logger.log_text("data preprocessing saved")
 
     # create/load model
     model = load_or_create_model(cfg, datamodule)
     logger.info("model loaded")
+    wandb_logger.log_text("model loaded")
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(cfg.model_checkpoints_pre_path, cfg.model_type),
@@ -190,17 +207,23 @@ def main(cfg: DictConfig) -> None:
         fast_dev_run=cfg.trainer.fast_dev_run,
         check_val_every_n_epoch=cfg.trainer.check_val_every_n_epoch,
         val_check_interval=cfg.trainer.val_check_interval,
+        logger=wandb_logger
     )
     logger.info("trainer created")
+    wandb_logger.log_text("trainer created")
 
     if cfg.trainer.auto_lr_find or cfg.trainer.auto_batch_find:
         logger.info("Tuning training hyper parameters")
+        wandb_logger.log_text("Tuning training hyper parameters")
         trainer.tune(model, datamodule=datamodule)
         logger.info(f"Trainer tuned. LR: {model.learning_rate}")
+        wandb_logger.log_text(f"Trainer tuned. LR: {model.learning_rate}")
     else:
         logger.info("Skipped tuning")
+        wandb_logger.log_text("Skipped tuning")
 
     logger.info("Fitting model...")
+    wandb_logger.log_text("Fitting model...")
     if not cfg.trainer.auto_lr_find:
         model.learning_rate = cfg.trainer.lr
     trainer.fit(
@@ -209,6 +232,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     logger.info(f"Done! Best model at {checkpoint_callback.best_model_path}")
+    wandb_logger.log_text(f"Done! Best model at {checkpoint_callback.best_model_path}")
 
 
 if __name__ == "__main__":
