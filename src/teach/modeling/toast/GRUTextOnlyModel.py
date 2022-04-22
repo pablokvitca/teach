@@ -84,6 +84,8 @@ class GRUTextOnlyModel(pl.LightningModule):
             decoder_input, decoder_hidden = pre_decoder_output
 
         # Call decoder.forward - Only do for "next token"
+        if decoder_input.dim() == 0:
+            decoder_input = decoder_input.unsqueeze(0)
         decoder_output, decoder_hidden, _ = self.decoder.forward(
             decoder_input,
             decoder_hidden,
