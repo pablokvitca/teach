@@ -3,9 +3,10 @@ import os
 
 import hydra
 from omegaconf import DictConfig
-from pytorch_lightning import Trainer
+from pytorch_lightning import Trainer, LightningDataModule
 from pytorch_lightning.accelerators import GPUAccelerator
 from pytorch_lightning.callbacks import ModelCheckpoint
+from typing import Union
 
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
@@ -107,6 +108,23 @@ def get_datamodule(cfg: DictConfig):
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
+def save_data_preprocessing(cfg: DictConfig, datamodule: LightningDataModule):
+    if cfg.model_type == 'naive':
+        logger.info("No need to save data preprocessing for naive model")
+    if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
+        logger.info(f"Saving data preprocessing for {cfg.model_type}")
+        cfg_gru = cfg[cfg.model_type]
+        assert isinstance(datamodule, SequentialDataModule) or isinstance(datamodule, SequentialSubgoalDataModule), \
+            f"Expected SequentialDataModule or SequentialSubgoalDataModule, got {type(datamodule)}"
+        sequential_datamodule: Union[SequentialDataModule, SequentialSubgoalDataModule] = datamodule
+        if cfg_gru.save_input_lang_path:
+            logger.info(f"Saving input lang at {cfg_gru.save_input_lang_path}")
+            sequential_datamodule.shared_input_lang.save(cfg_gru.save_input_lang_path)
+        if cfg_gru.save_output_lang_path:
+            logger.info(f"Saving output lang at {cfg_gru.save_output_lang_path}")
+            sequential_datamodule.shared_output_lang.save(cfg_gru.save_output_lang_path)
+
+
 @hydra.main(config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
     if cfg.model_type not in cfg.known_model_data_types:
@@ -119,6 +137,10 @@ def main(cfg: DictConfig) -> None:
     datamodule.setup("fit")
     datamodule.setup("validate")
     logger.info("train and valid have been setup")
+
+    if cfg.save_data_preprocessing:
+        save_data_preprocessing(cfg, datamodule)
+        logger.info("data preprocessing saved")
 
     # create/load model
     model = load_or_create_model(cfg, datamodule)

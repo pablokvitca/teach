@@ -38,13 +38,13 @@ class GRUTextOnlyModel(pl.LightningModule):
         self.max_length = max_length
 
         self.encoder = EncoderRNN(
-            self.input_lang_n_words,
+            self.input_lang.n_words,
             self.encoder_hidden_size
         )
 
         self.decoder = AttnDecoderRNN(
             self.decoder_hidden_size,
-            self.output_lang_n_words,
+            self.output_lang.n_words,
             dropout_p=self.decoder_dropout_p,
             max_length=self.max_length
         )
@@ -112,7 +112,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             loss += F.cross_entropy(
                 decoder_output,
-                F.one_hot(y_token, num_classes=self.output_lang_n_words).to(dtype=torch.float).squeeze(dim=1)
+                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(dtype=torch.float).squeeze(dim=1)
             )
 
             if self.teacher_forcing:
@@ -147,7 +147,7 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             loss += F.cross_entropy(
                 decoder_output,
-                F.one_hot(y_token, num_classes=self.output_lang_n_words).to(dtype=torch.float).squeeze(dim=1)
+                F.one_hot(y_token, num_classes=self.output_lang.n_words).to(dtype=torch.float).squeeze(dim=1)
             )
 
             decoder_input = decoder_output.topk(1)[1].squeeze().detach()

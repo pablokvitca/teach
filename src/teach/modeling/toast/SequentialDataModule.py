@@ -196,8 +196,8 @@ class SequentialDataModule(LightningDataModule):
         self.test_seen_dataset = None
         self.test_unseen_dataset = None
 
-        self.shared_input_lang = None
-        self.shared_output_lang = None
+        self.shared_input_lang: Optional[Lang] = None
+        self.shared_output_lang: Optional[Lang] = None
 
         self.num_workers = num_workers
 
