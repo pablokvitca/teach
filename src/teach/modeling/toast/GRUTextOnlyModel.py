@@ -118,6 +118,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             if self.teacher_forcing:
                 decoder_input = y_token
             else:
+                # TODO: fix batch > 1 will fail if not using teacher forcing
                 decoder_input = decoder_output.topk(1)[1].squeeze().detach()
                 if decoder_input.item() == self.output_lang.EOS_token_index:
                     break

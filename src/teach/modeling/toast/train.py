@@ -83,6 +83,7 @@ def get_datamodule(cfg: DictConfig):
         datamodule = SequentialDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
+            validation_batch_size=cfg.datamodule.validation_batch_size,
             input_lang_path=cfg.gru_text.input_lang_path,
             output_lang_path=cfg.gru_text.output_lang_path,
             include_x_text=True,
@@ -102,6 +103,7 @@ def get_datamodule(cfg: DictConfig):
         datamodule = SequentialSubgoalDataModule(
             cfg.data_folder_path,
             cfg.datamodule.batch_size,
+            validation_batch_size=cfg.datamodule.validation_batch_size,
             input_lang_path=cfg.gru_text_subgoal.input_lang_path,
             output_lang_path=cfg.gru_text_subgoal.output_lang_path,
             include_x_text=True,
