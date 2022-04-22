@@ -4,6 +4,7 @@ import os
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
+from pytorch_lightning.accelerators import GPUAccelerator
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from teach.inference.actions import all_agent_actions
@@ -128,9 +129,18 @@ def main(cfg: DictConfig) -> None:
         save_top_k=cfg.trainer.checkpoints_save_top_k,
         monitor="val_loss"
     )
+
+    devices = cfg.trainer.devices
+    if cfg.trainer.acc_device == 'gpu':
+        if GPUAccelerator.is_available():
+            if isinstance(devices, str):
+                devices = [int(d) for d in devices.split(',')]
+        else:
+            devices = cfg.trainer.fallback_devices
+
     trainer = Trainer(
         accelerator=cfg.trainer.acc_device,
-        devices=[int(d) for d in cfg.trainer.devices.split(',')] if cfg.trainer.acc_device == 'gpu' else cfg.trainer.devices,
+        devices=devices,
         auto_lr_find=cfg.trainer.auto_lr_find and cfg[cfg.model_type].auto_lr_find,
         track_grad_norm=cfg.trainer.track_grad_norm,
         gradient_clip_val=cfg.trainer.gradient_clip_val,

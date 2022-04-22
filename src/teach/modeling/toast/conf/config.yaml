@@ -39,6 +39,7 @@ trainer:
   checkpoints_save_top_k: 3
   acc_device: gpu
   devices: '0'
+  fallback_devices: 1
   auto_lr_find: True
   track_grad_norm: 2
   gradient_clip_val: 0.5
