@@ -112,7 +112,7 @@ class SequentialTEACHSubgoalDataset(Dataset):
                 if self.output_lang_path is None:
                     logger.error("SUBGOAL LANGUAGE SHOULD BE PRELOADED!")
                     if self.extend_language:
-                        [self.output_lang.add_word(subgoal) for subgoal in subgoal]
+                        [self.output_lang.add_word(subgoal) for subgoal in subgoals]
 
                 instance_subgoal_tensor = self.tensorize_subgoal_language(subgoals)
 
