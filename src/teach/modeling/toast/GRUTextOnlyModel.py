@@ -37,6 +37,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         self.decoder_dropout_p = decoder_dropout_p
         self.learning_rate = learning_rate
         self.max_length = max_length
+        self.max_output_length = max_output_length
 
         self.encoder = EncoderRNN(
             self.input_lang.n_words,
