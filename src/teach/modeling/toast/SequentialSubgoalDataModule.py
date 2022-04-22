@@ -196,6 +196,8 @@ class SequentialSubgoalDataModule(LightningDataModule):
             self.data_dir,
             split_name,
             self.include_x_text,
+            input_lang_path=self.input_lang_path,
+            output_lang_path=self.output_lang_path,
             input_lang=self.shared_input_lang,
             output_lang=self.shared_output_lang,
             extend_language=extend_language,
