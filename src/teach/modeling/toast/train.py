@@ -64,6 +64,7 @@ def load_or_create_model(cfg: DictConfig, datamodule):
                 learning_rate=cfg.trainer.lr,
                 max_length=cfg_gru.max_length,
                 max_output_length=cfg_gru.max_output_length,
+                output_length_delta=cfg_gru.output_length_delta,
                 use_single_optimizer=cfg_gru.use_single_optimizer,
             )
     raise ValueError(f"Unknown model type {cfg.model_type}")
