@@ -151,7 +151,7 @@ def main(cfg: DictConfig) -> None:
     datamodule.setup("validate")
     logger.info("train and valid have been setup")
 
-    if cfg.save_data_preprocessing:
+    if cfg.datamodule.save_data_preprocessing:
         save_data_preprocessing(cfg, datamodule)
         logger.info("data preprocessing saved")
 
