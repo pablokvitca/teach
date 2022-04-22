@@ -23,6 +23,7 @@ class GRUTextOnlyModel(pl.LightningModule):
             decoder_dropout_p=0.1,
             learning_rate=0.001,
             max_length=1000,
+            max_output_length=1000,
             use_single_optimizer=False,
     ):
         super().__init__()
@@ -140,7 +141,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         loss = torch.zeros(1, device=self.device)
         did_output_eos = False
         y_token_idx = 0
-        while not did_output_eos:
+        while not did_output_eos and y_token_idx < self.max_output_length:
             y_token = y[y_token_idx] if y_token_idx < y.size(0) else \
                 torch.Tensor([self.output_lang.EOS_token_index]).to(device=self.device, dtype=torch.long).unsqueeze(0)
             if y_token.dim() == 0:

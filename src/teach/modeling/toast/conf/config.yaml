@@ -22,6 +22,7 @@ gru_text:
   decoder_dropout_p: 0.5
   auto_lr_find: False
   max_length: 1000
+  max_output_length: 1000
   use_single_optimizer: False
 gru_text_subgoal:
   input_lang_path: /home/sethsclass/teach_subgoal_input_lang.pickle
@@ -34,6 +35,7 @@ gru_text_subgoal:
   decoder_dropout_p: 0.5
   auto_lr_find: False
   max_length: 1000
+  max_output_length: 1000
   use_subgoal_history: True
   use_subgoal_future: True
   use_commander_language: True
