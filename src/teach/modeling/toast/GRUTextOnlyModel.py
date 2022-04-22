@@ -65,8 +65,11 @@ class GRUTextOnlyModel(pl.LightningModule):
             encoder_outputs = torch.zeros(self.max_length, self.encoder_hidden_size, device=self.device)
             encoder_hidden = self.encoder.init_hidden(batch_size)
             for input_token_tensor_idx in range(text_tensor.size(0)):
+                encoder_input = text_tensor[input_token_tensor_idx]
+                if encoder_input.dim() == 0:
+                    encoder_input = encoder_input.unsqueeze(0)
                 encoder_output, encoder_hidden = self.encoder.forward(
-                    text_tensor[input_token_tensor_idx],
+                    encoder_input,
                     encoder_hidden
                 )
                 encoder_outputs[input_token_tensor_idx] += encoder_output[0, 0]
