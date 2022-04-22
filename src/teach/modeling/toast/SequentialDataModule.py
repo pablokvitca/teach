@@ -171,6 +171,7 @@ class SequentialDataModule(LightningDataModule):
     def __init__(self,
                  data_dir: str,
                  batch_size: int,
+                 validation_batch_size: Optional[int] = None,
                  input_lang_path=None,
                  output_lang_path=None,
                  include_x_text: bool = True,
@@ -182,6 +183,7 @@ class SequentialDataModule(LightningDataModule):
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
+        self.validation_batch_size = self.batch_size if validation_batch_size is None else validation_batch_size
         self.input_lang_path = input_lang_path
         self.output_lang_path = output_lang_path
         self.include_x_text = include_x_text
@@ -252,10 +254,10 @@ class SequentialDataModule(LightningDataModule):
         if (stage == "test_unseen" or stage is None) and self.test_unseen_dataset is None:
             self.test_unseen_dataset = self.load_dataset('test_unseen', extend_language=False)
 
-    def _get_dataloader(self, dataset):
+    def _get_dataloader(self, dataset, use_val_batch_size=False):
         return DataLoader(
             dataset,
-            batch_size=self.batch_size,
+            batch_size=self.batch_size if not use_val_batch_size else self.validation_batch_size,
             num_workers=self.num_workers,
             collate_fn=SequentialDataModule.collate_fn_pad,
         )
@@ -268,19 +270,19 @@ class SequentialDataModule(LightningDataModule):
     def val_dataloader(self):
         if self.valid_seen_dataset is None:
             raise ValueError("valid seen dataset is not loaded")
-        return self._get_dataloader(self.valid_seen_dataset)
+        return self._get_dataloader(self.valid_seen_dataset, use_val_batch_size=True)
 
     def val_unseen_dataloader(self):
         if self.valid_unseen_dataset is None:
             raise ValueError("valid unseen dataset is not loaded")
-        return self._get_dataloader(self.valid_unseen_dataset)
+        return self._get_dataloader(self.valid_unseen_dataset, use_val_batch_size=True)
 
     def test_dataloader(self):
         if self.test_seen_dataset is None:
             raise ValueError("test seen dataset is not loaded")
-        return self._get_dataloader(self.test_seen_dataset)
+        return self._get_dataloader(self.test_seen_dataset, use_val_batch_size=True)
 
     def test_unseen_dataloader(self):
         if self.test_unseen_dataset is None:
             raise ValueError("test unseen dataset is not loaded")
-        return self._get_dataloader(self.test_unseen_dataset)
+        return self._get_dataloader(self.test_unseen_dataset, use_val_batch_size=True)
