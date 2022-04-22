@@ -40,9 +40,9 @@ class SequentialTEACHSubgoalDataset(Dataset):
         self.include_x_text = include_x_test
         self.token_pad_length = token_pad_length
 
-        self.input_lang_path = input_lang_path if os.path.exists(input_lang_path) else None
+        self.input_lang_path = input_lang_path if input_lang_path and os.path.exists(input_lang_path) else None
         self.input_lang: Lang = input_lang or Lang(self.input_lang_path)
-        self.output_lang_path = output_lang_path if os.path.exists(output_lang_path) else None
+        self.output_lang_path = output_lang_path if output_lang_path and os.path.exists(output_lang_path) else None
         self.output_lang: Lang = output_lang or Lang(self.output_lang_path)
 
         self.extend_language = extend_language
