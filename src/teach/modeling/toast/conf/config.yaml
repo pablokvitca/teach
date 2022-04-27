@@ -4,7 +4,7 @@ known_model_data_types:
   gru_text
   gru_text_subgoal
   task_from_text_single
-data_folder_path: /home/sethsclass/
+data_folder_path: /home/sethsclass/teach-dataset
 model_checkpoints_pre_path: ./model_checkpoints_out
 model_load_name: epoch=0-step=44.ckpt
 naive:
