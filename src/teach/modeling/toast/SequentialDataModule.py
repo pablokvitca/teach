@@ -16,7 +16,7 @@ from tqdm import trange
 from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
-from teach.modeling.et.alfred.nn.transforms import Transforms
+from teach.modeling.ET.alfred.nn.transforms import Transforms
 from teach.modeling.toast.Lang import Lang
 
 logger = create_logger(__name__, level=logging.INFO)

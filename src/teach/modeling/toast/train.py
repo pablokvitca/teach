@@ -18,6 +18,9 @@ from teach.modeling.toast.SequentialSubgoalDataModule import SequentialSubgoalDa
 
 from pytorch_lightning.loggers import WandbLogger
 
+from teach.modeling.toast.TaskFromDialogueHistoryDataModule import TaskFromDialogueHistoryDataModule
+from teach.modeling.toast.TextClassificationModel import TextClassificationModel
+
 logger = create_logger(__name__, level=logging.INFO)
 
 
@@ -25,15 +28,17 @@ def does_model_exist(model_load_path):
     return os.path.exists(model_load_path)
 
 
-def load_or_create_model(cfg: DictConfig, datamodule):
+def load_or_create_model(cfg: DictConfig, datamodule: LightningDataModule):
     path = os.path.join(cfg.model_checkpoints_pre_path or '', cfg.model_type, cfg.model_load_name)
     if cfg.model_checkpoints_pre_path is not None and does_model_exist(path):
         logger.info(f"Loading model from {path}.")
-        wandb_logger = WandbLogger(name=cfg.model_type, project=cfg.wandb_project)
+        # wandb_logger = WandbLogger(name=cfg.model_type, project=cfg.wandb_project)
         if cfg.model_type == 'naive':
             return NaiveMultiModalModel.load_from_checkpoint(path)
         if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
             return GRUTextOnlyModel.load_from_checkpoint(path)
+        if cfg.model_type == 'task_from_text_single':
+            return TextClassificationModel.load_from_checkpoint(path)
     else:
         logger.info(f"Could not find model to load at {path}. Creating new model.")
         if cfg.model_type == 'naive':
@@ -66,6 +71,13 @@ def load_or_create_model(cfg: DictConfig, datamodule):
                 max_output_length=cfg_gru.max_output_length,
                 output_length_delta=cfg_gru.output_length_delta,
                 use_single_optimizer=cfg_gru.use_single_optimizer,
+            )
+        if cfg.model_type == 'task_from_text_single':
+            logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+            return TextClassificationModel(
+                cfg.task_from_text_single.pretrained_model_name,
+                datamodule.num_labels,
+                learning_rate=0.001,
             )
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
@@ -112,6 +124,30 @@ def get_datamodule(cfg: DictConfig):
             use_small_dataset=cfg.datamodule.use_small_dataset,
             num_workers=cfg.datamodule.num_workers,
         )
+    if cfg.model_type == 'task_from_text_single':
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        return TaskFromDialogueHistoryDataModule(
+            cfg.data_folder_path,
+            cfg.datamodule.batch_size,
+            pretrained_transformer_name=cfg.task_from_text_single.pretrained_model_name,
+            use_commander_language=cfg.task_from_text_single.use_commander_language,
+            use_follower_language=cfg.task_from_text_single.use_follower_language,
+            use_main_task_only=True,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            num_workers=cfg.datamodule.num_workers,
+        )
+    if cfg.model_type == 'task_from_text_multi':
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        return TaskFromDialogueHistoryDataModule(
+            cfg.data_folder_path,
+            cfg.datamodule.batch_size,
+            pretrained_transformer_name=cfg.task_from_text_single.pretrained_model_name,
+            use_commander_language=cfg.cfg.task_from_text_single.use_commander_language,
+            use_follower_language=cfg.cfg.task_from_text_single.use_follower_language,
+            use_main_task_only=False,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            num_workers=cfg.datamodule.num_workers,
+        )
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
@@ -130,9 +166,13 @@ def save_data_preprocessing(cfg: DictConfig, datamodule: LightningDataModule):
         if cfg_gru.save_output_lang_path:
             logger.info(f"Saving output lang at {cfg_gru.save_output_lang_path}")
             sequential_datamodule.shared_output_lang.save(cfg_gru.save_output_lang_path)
+    if cfg.model_type == 'task_from_text_single':
+        logger.info("No need to save data preprocessing for task_from_text_single model")
+    if cfg.model_type == 'task_from_text_multi':
+        logger.info("No need to save data preprocessing for task_from_text_single model")
 
 
-def check_loaded_datamodule(cfg, datamodule):
+def check_loaded_datamodule(cfg: DictConfig, datamodule: LightningDataModule):
     if cfg.model_type == 'naive':
         pass
     if cfg.model_type in ['gru_text', 'gru_text_subgoal']:
@@ -144,6 +184,10 @@ def check_loaded_datamodule(cfg, datamodule):
             if (cfg_gru.output_lang_path is not None and cfg_gru.output_lang_path != 'None') \
                     and not datamodule.shared_output_lang.loaded_from_file:
                 raise ValueError(f"Could not load output langs from {cfg_gru.output_lang_path}")
+    if cfg.model_type == 'task_from_text_single':
+        pass
+    if cfg.model_type == 'task_from_text_multi':
+        pass
 
 
 @hydra.main(config_path="conf", config_name="config")
@@ -159,18 +203,18 @@ def main(cfg: DictConfig) -> None:
 
     if cfg.model_type not in cfg.known_model_data_types:
         raise ValueError(f"Unknown model type {cfg.model_type}")
-    logger.info(f"Model type: {cfg.model_type}")
-    wandb_logger.log_text(f"Model type: {cfg.model_type}")
-    logger.info(f"loading from path: {cfg.data_folder_path}")
-    wandb_logger.log_text(f"loading from path: {cfg.data_folder_path}")
-    logger.info(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_pre_path} (model_load_name: {cfg.model_load_name})")
-    wandb_logger.log_text(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_pre_path} (model_load_name: {cfg.model_load_name})")
+    logger.info(f"Model type {cfg.model_type}")
+    # wandb_logger.log_text(f"Model type {cfg.model_type}")
+    logger.info(f"loading from path {cfg.data_folder_path}")
+    # wandb_logger.log_text(f"loading from path {cfg.data_folder_path.replace('/', '.')}")
+    logger.info(f"Saving/loading model checkpoints to/from {cfg.model_checkpoints_pre_path} (model_load_name {cfg.model_load_name})")
+    # wandb_logger.log_text(f"Savingloading model checkpoints tofrom {cfg.model_checkpoints_pre_path.replace('/', '.')} (model_load_name {cfg.model_load_name})")
 
     datamodule = get_datamodule(cfg)
     datamodule.setup("fit")
     datamodule.setup("validate")
     logger.info("train and valid have been setup")
-    wandb_logger.log_text("train and valid have been setup")
+    # wandb_logger.log_text("train and valid have been setup")
 
     # Checking loaded datamodule
     check_loaded_datamodule(cfg, datamodule)
@@ -178,12 +222,12 @@ def main(cfg: DictConfig) -> None:
     if cfg.datamodule.save_data_preprocessing:
         save_data_preprocessing(cfg, datamodule)
         logger.info("data preprocessing saved")
-        wandb_logger.log_text("data preprocessing saved")
+        # wandb_logger.log_text("data preprocessing saved")
 
     # create/load model
     model = load_or_create_model(cfg, datamodule)
     logger.info("model loaded")
-    wandb_logger.log_text("model loaded")
+    # wandb_logger.log_text("model loaded")
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(cfg.model_checkpoints_pre_path, cfg.model_type),
@@ -211,25 +255,25 @@ def main(cfg: DictConfig) -> None:
         num_sanity_val_steps=cfg.trainer.num_sanity_val_steps,
         detect_anomaly=cfg.trainer.detect_anomaly,
         fast_dev_run=cfg.trainer.fast_dev_run,
-        check_val_every_n_epoch=cfg.trainer.check_val_every_n_epoch,
-        val_check_interval=cfg.trainer.val_check_interval,
+        # check_val_every_n_epoch=cfg.trainer.check_val_every_n_epoch,
+        # val_check_interval=cfg.trainer.val_check_interval,
         logger=wandb_logger
     )
     logger.info("trainer created")
-    wandb_logger.log_text("trainer created")
+    # wandb_logger.log_text("trainer created")
 
     if cfg.trainer.auto_lr_find or cfg.trainer.auto_batch_find:
         logger.info("Tuning training hyper parameters")
-        wandb_logger.log_text("Tuning training hyper parameters")
+        # wandb_logger.log_text("Tuning training hyper parameters")
         trainer.tune(model, datamodule=datamodule)
         logger.info(f"Trainer tuned. LR: {model.learning_rate}")
-        wandb_logger.log_text(f"Trainer tuned. LR: {model.learning_rate}")
+        # wandb_logger.log_text(f"Trainer tuned. LR: {model.learning_rate}")
     else:
         logger.info("Skipped tuning")
-        wandb_logger.log_text("Skipped tuning")
+        # wandb_logger.log_text("Skipped tuning")
 
     logger.info("Fitting model...")
-    wandb_logger.log_text("Fitting model...")
+    # wandb_logger.log_text("Fitting model...")
     if not cfg.trainer.auto_lr_find:
         model.learning_rate = cfg.trainer.lr
     trainer.fit(
@@ -238,7 +282,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     logger.info(f"Done! Best model at {checkpoint_callback.best_model_path}")
-    wandb_logger.log_text(f"Done! Best model at {checkpoint_callback.best_model_path}")
+    # wandb_logger.log_text(f"Done! Best model at {checkpoint_callback.best_model_path.replace('/', '.')}")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from tqdm import trange
 from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
-from teach.modeling.et.alfred.nn.transforms import Transforms
+from teach.modeling.ET.alfred.nn.transforms import Transforms
 from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, encode_as_word_vectors
 
 logger = create_logger(__name__, level=logging.INFO)
@@ -156,20 +156,21 @@ class NaiveDataModule(LightningDataModule):
     Uses padding for the sequential data models, with a PADDED tensor matrix, the PAD size for each input can be
     configured using the arguments `x_text_pad_length` and `x_prev_action_pad_length`.
     """
-    def __init__(self,
-                 data_dir: str,
-                 wv2_path: str,
-                 batch__size: int,
-                 include_x_text: bool = True,
-                 include_x_cur_image: bool = True,
-                 include_x_prev_actions: bool = True,
-                 x_test_seq: bool = False,
-                 x_prev_action_seq: bool = False,
-                 x_text_pad_length: int = 50,
-                 x_prev_action_pad_length: int = 500,
-                 use_small_dataset: bool = False,
-                 num_workers: int = 8,
-                 ):
+    def __init__(
+            self,
+            data_dir: str,
+            wv2_path: str,
+            batch__size: int,
+            include_x_text: bool = True,
+            include_x_cur_image: bool = True,
+            include_x_prev_actions: bool = True,
+            x_test_seq: bool = False,
+            x_prev_action_seq: bool = False,
+            x_text_pad_length: int = 50,
+            x_prev_action_pad_length: int = 500,
+            use_small_dataset: bool = False,
+            num_workers: int = 8,
+    ):
         super().__init__()
         self.data_dir = data_dir
         self.wv2_path = wv2_path
