@@ -1,8 +1,8 @@
 import torch
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 import pytorch_lightning as pl
-from torch.optim import Adam
-from transformers import AutoConfig, AutoModelForSequenceClassification
+from torch.optim import AdamW
+from transformers import AutoConfig, AutoModelForSequenceClassification, get_linear_schedule_with_warmup
 from typing import Union, List
 
 from teach.logger import create_logger
@@ -14,9 +14,15 @@ class TextClassificationModel(pl.LightningModule):
 
     def __init__(
             self,
-            pretrained_model_name,
-            num_labels,
+            pretrained_model_name="distilbert-base-uncased",
+            num_labels=5,
             learning_rate=0.001,
+            adam_epsilon: float = 1e-8,
+            warmup_steps: int = 0,
+            weight_decay: float = 0.0,
+            train_batch_size=16,
+            eval_batch_size=16,
+            **kwargs
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -28,6 +34,12 @@ class TextClassificationModel(pl.LightningModule):
         self.model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, config=self.hg_config)
 
         self.learning_rate = learning_rate
+        self.adam_epsilon = adam_epsilon,
+        self.warmup_steps = warmup_steps
+        self.weight_decay = weight_decay,
+        self.train_batch_size = train_batch_size,
+        self.eval_batch_size = eval_batch_size,
+        self.total_steps = None
 
     def forward(self, x):
         return self.model(**x)
@@ -65,5 +77,34 @@ class TextClassificationModel(pl.LightningModule):
         self.log("val_acc", acc, prog_bar=True)
         self.log("val_loss", loss, prog_bar=True)
 
+    def setup(self, stage=None):
+        if stage == 'fit':
+            train_loader = self.trainer.datamodule.train_dataloader()
+            tb_size = self.hparams.train_batch_size * max(1, self.trainer.gpus)
+            ab_size = self.trainer.accumulate_grad_batches * float(self.trainer.max_epochs)
+            self.total_steps = (len(train_loader.dataset) // tb_size) // ab_size
+
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=self.learning_rate)
+        model = self.model
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+                "weight_decay": self.hparams.weight_decay,
+            },
+            {
+                "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+                "weight_decay": 0.0,
+            },
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adam_epsilon)
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=self.hparams.warmup_steps,
+            num_training_steps=self.total_steps
+        )
+        scheduler = {
+            "scheduler": scheduler,
+            "interval": "step",
+            "frequency": 1
+        }

@@ -4,19 +4,21 @@ known_model_data_types:
   gru_text
   gru_text_subgoal
   task_from_text_single
-data_folder_path: /home/sethsclass/teach-dataset
-model_checkpoints_pre_path: ./model_checkpoints_out
+skip_model_load: True
+parent_dir_path: E:\
+data_folder_path: ${parent_dir_path}teach-dataset
+model_checkpoints_pre_path: model_checkpoints_out
 model_load_name: epoch=0-step=44.ckpt
 naive:
-  wv2_path:  /home/sethsclass/GoogleNews-vectors-negative300.bin.gz
+  wv2_path:  ${parent_dir_path}GoogleNews-vectors-negative300.bin.gz
   x_text_pad_length: 100
   x_prev_action_pad_length: 100
   auto_lr_find: True
 gru_text:
-  input_lang_path: /home/sethsclass/teach_input_lang.pickle
-  output_lang_path: /home/sethsclass/teach_output_lang.pickle
-  save_input_lang_path: /home/sethsclass/new_teach_input_lang.pickle
-  save_output_lang_path: /home/sethsclass/new_teach_output_lang.pickle
+  input_lang_path: ${parent_dir_path}teach_input_lang.pickle
+  output_lang_path: ${parent_dir_path}teach_output_lang.pickle
+  save_input_lang_path: ${parent_dir_path}new_teach_input_lang.pickle
+  save_output_lang_path: ${parent_dir_path}new_teach_output_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -28,9 +30,9 @@ gru_text:
   use_single_optimizer: False
 gru_text_subgoal:
   input_lang_path: None
-  output_lang_path: /home/sethsclass/teach_subgoal_output_lang.pickle
-  save_input_lang_path: /home/sethsclass/new_teach_subgoal_input_lang.pickle
-  save_output_lang_path: /home/sethsclass/new_teach_subgoal_output_lang.pickle
+  output_lang_path: ${parent_dir_path}teach_subgoal_output_lang.pickle
+  save_input_lang_path: ${parent_dir_path}new_teach_subgoal_input_lang.pickle
+  save_output_lang_path: ${parent_dir_path}new_teach_subgoal_output_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -49,12 +51,18 @@ task_from_text_single:
   use_commander_language: True
   use_follower_language: True
   auto_lr_find: False
+  learning_rate: 2e-5
+  adam_epsilon: 1e-8
+  warmup_steps: 0
+  weight_decay: 0.0
 trainer:
   checkpoints_save_top_k: 3
   acc_device: gpu
   devices: '0'
   fallback_devices: 1
-  auto_lr_find: True
+  auto_lr_find: False
+  auto_batch_find: False
+  use_model_lr: True
   track_grad_norm: -1
   gradient_clip_val: 0.0
   gradient_clip_algorithm: value
@@ -62,7 +70,7 @@ trainer:
   num_sanity_val_steps: 1
   detect_anomaly: False
   fast_dev_run: False
-  lr: 0.01
+  lr: 2e-5
   check_val_every_n_epoch: 1
   val_check_interval: 1
 datamodule:

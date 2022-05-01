@@ -148,17 +148,19 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
     def __init__(
             self,
             data_dir: str,
-            batch_size: int,
             pretrained_transformer_name="distilbert-base-uncased",
             use_commander_language: bool = True,
             use_follower_language: bool = True,
             use_main_task_only=True,
             use_small_dataset: bool = False,
+            train_batch_size: int = 16,
+            eval_batch_size: int = 16,  # not used currently
             num_workers: int = 8,
      ):
         super().__init__()
         self.data_dir = data_dir
-        self.batch_size = batch_size
+        self.train_batch_size = train_batch_size
+        self.eval_batch_size = eval_batch_size
         self.use_commander_language = use_commander_language
         self.use_follower_language = use_follower_language
         self.use_main_task_only = use_main_task_only
@@ -173,12 +175,16 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
 
         self.shared_input_lang: Optional[Lang] = None
 
-        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_transformer_name)
+        self.pretrained_transformer_name = pretrained_transformer_name
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained_transformer_name, use_fast=True)
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
         self.num_labels = -1
 
         self.num_workers = num_workers
+
+    def prepare_data(self):
+        AutoTokenizer.from_pretrained(self.pretrained_transformer_name, use_fast=True)
 
     def load_dataset(self, split_name) -> TaskFromDialogueHistoryTEACHDataset:
         dataset = TaskFromDialogueHistoryTEACHDataset(
@@ -214,7 +220,7 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
     def _get_dataloader(self, dataset):
         return DataLoader(
             dataset,
-            batch_size=self.batch_size,
+            batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             collate_fn=self.data_collator,
         )

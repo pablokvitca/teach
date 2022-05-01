@@ -3,19 +3,22 @@ known_model_data_types:
   naive
   gru_text
   gru_text_subgoal
-data_folder_path: /Volumes/Extreme SSD/teach-dataset
+  task_from_text_single
+skip_model_load: True
+parent_dir_path: /Volumes/Extreme SSD/
+data_folder_path: ${parent_dir_path}teach-dataset
 model_checkpoints_pre_path: ./model_checkpoints_out/
 model_load_name: epoch=0-step=44.ckpt
 naive:
-  wv2_path:  /Volumes/Extreme SSD/GoogleNews-vectors-negative300.bin.gz
+  wv2_path:  ${parent_dir_path}GoogleNews-vectors-negative300.bin.gz
   x_text_pad_length: 100
   x_prev_action_pad_length: 100
   auto_lr_find: True
 gru_text:
-  input_lang_path: /Volumes/Extreme SSD/teach_input_lang.pickle
-  output_lang_path: /Volumes/Extreme SSD/teach_output_lang.pickle
-  save_input_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
-  save_output_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
+  input_lang_path: ${parent_dir_path}teach_input_lang.pickle
+  output_lang_path: ${parent_dir_path}teach_output_lang.pickle
+  save_input_lang_path: ${parent_dir_path}new_teach_input_lang.pickle
+  save_output_lang_path: ${parent_dir_path}new_teach_input_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -26,10 +29,10 @@ gru_text:
   output_length_delta: 10
   use_single_optimizer: False
 gru_text_subgoal:
-  input_lang_path: /Volumes/Extreme SSD/teach_subgoal_input_lang.pickle
-  output_lang_path: /Volumes/Extreme SSD/teach_subgoal_output_lang.pickle
-  save_input_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
-  save_output_lang_path: /Volumes/Extreme SSD/new_teach_input_lang.pickle
+  input_lang_path: ${parent_dir_path}teach_subgoal_input_lang.pickle
+  output_lang_path: ${parent_dir_path}teach_subgoal_output_lang.pickle
+  save_input_lang_path: ${parent_dir_path}new_teach_input_lang.pickle
+  save_output_lang_path: ${parent_dir_path}new_teach_input_lang.pickle
   encoder_hidden_size: 256
   decoder_hidden_size: 256
   teacher_forcing: True
@@ -43,6 +46,11 @@ gru_text_subgoal:
   use_commander_language: True
   use_follower_language: True
   use_single_optimizer: False
+task_from_text_single:
+  pretrained_model_name: distilbert-base-uncased
+  use_commander_language: True
+  use_follower_language: True
+  auto_lr_find: False
 trainer:
   checkpoints_save_top_k: 3
   acc_device: gpu
