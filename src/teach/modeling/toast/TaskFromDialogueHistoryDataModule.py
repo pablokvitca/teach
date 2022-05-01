@@ -29,8 +29,11 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
             split_name: str,
             tokenizer,
             num_labels=-1,
+            class_id_2_task_id=None,
+            task_id_2_class_id=None,
             use_commander_language=True,
             use_follower_language=True,
+            use_edh=True,
             use_main_task_only=True,  # TODO: implement not case
     ):
         self.data_dir = data_dir
@@ -41,14 +44,16 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
         self.use_commander_language = use_commander_language
         self.use_follower_language = use_follower_language
 
+        self.use_edh = use_edh
+
         self.use_main_task_only = use_main_task_only
 
         self.tokenizer = tokenizer
 
         self.known_tasks = Counter()
         self.task_id_2_name = {}
-        self.task_id_2_class_id = {}
-        self.class_id_2_task_id = {}
+        self.task_id_2_class_id = task_id_2_class_id if task_id_2_class_id is not None else {}
+        self.class_id_2_task_id = class_id_2_task_id if class_id_2_task_id is not None else {}
 
         self.data = self._load_data()
 
@@ -83,6 +88,59 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
         return ".".join(text_parts)
 
     def _load_data(self):
+        if self.use_edh:
+            return self._load_data_edh()
+        else:
+            return self._load_data_games()
+
+    def _load_data_games(self):
+        edh_dir = os.path.join(self.data_dir, 'edh_instances', self.split_name)
+        games_dir = os.path.join(self.data_dir, 'games', self.split_name)
+        files = sorted([f for f in os.listdir(edh_dir) if not f.startswith('.')])
+        data = {}
+        for i in trange(len(files)):
+            file = files[i]
+            edh_instance_file_path = os.path.join(edh_dir, file)
+            with open(edh_instance_file_path) as f:
+                edh_instance = json.load(f)
+                # CHECK GAME WITH ID FILE EXISTS!
+                game_id = edh_instance["game_id"]
+                game_file_path = os.path.join(games_dir, f'{game_id}.game.json')
+                if os.path.exists(game_file_path):
+                    text_from_instance = self.get_text_from_instance(edh_instance)
+                    instance_text_tensor = self.tokenize_input_language(text_from_instance)
+                    x = instance_text_tensor
+
+                    if game_id in data:
+                        data[game_id][0] += x
+                    else:
+                        game_tasks: List[Tuple[int, str, str]] = []
+                        with open(game_file_path) as game_file:
+                            game = json.load(game_file)
+                            task_data = game["tasks"][0]
+                            if self.use_main_task_only:
+                                game_tasks = [(task_data["task_id"], task_data["task_name"], task_data["desc"])]
+                            else:
+                                game_tasks = TaskFromDialogueHistoryTEACHDataset.recursively_get_task_data(task_data)
+
+                        y = []
+                        for task_id, task_name, task_desc in game_tasks:
+                            self.known_tasks[task_id] += 1
+                            if task_id not in self.task_id_2_class_id:
+                                task_name = task_data["task_name"]
+                                self.task_id_2_name[task_id] = task_name
+                                class_id = len(self.task_id_2_class_id)
+                                self.task_id_2_class_id[task_id] = class_id
+                                self.class_id_2_task_id[class_id] = task_id
+                                logger.info(f"Added new task (id: {task_id}) '{task_name}' as class #{class_id}")
+                            y.append(self.task_id_2_class_id[task_id])
+
+                        data[game_id] = (x, y)
+                else:
+                    logger.warn(f"GAME FILE FOR EDH INSTANCE DID NOT EXIST \n\tgame: {game_file_path} \n\tedh_instance:{edh_instance_file_path}")
+        return data.values()
+
+    def _load_data_edh(self):
         edh_dir = os.path.join(self.data_dir, 'edh_instances', self.split_name)
         games_dir = os.path.join(self.data_dir, 'games', self.split_name)
         files = sorted([f for f in os.listdir(edh_dir) if not f.startswith('.')])
@@ -152,6 +210,7 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
             use_commander_language: bool = True,
             use_follower_language: bool = True,
             use_main_task_only=True,
+            use_edh=True,
             insert_pad_token=False,
             use_small_dataset: bool = False,
             train_batch_size: int = 16,
@@ -165,6 +224,7 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
         self.use_commander_language = use_commander_language
         self.use_follower_language = use_follower_language
         self.use_main_task_only = use_main_task_only
+        self.use_edh = use_edh
 
         self.use_small_dataset = use_small_dataset
 
@@ -184,6 +244,8 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
         self.num_labels = -1
+        self.class_id_2_task_id = None
+        self.task_id_2_class_id = None
 
         self.num_workers = num_workers
 
@@ -196,9 +258,12 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
             split_name,
             self.tokenizer,
             num_labels=self.num_labels,
+            class_id_2_task_id=self.class_id_2_task_id,
+            task_id_2_class_id=self.task_id_2_class_id,
             use_commander_language=self.use_commander_language,
             use_follower_language=self.use_follower_language,
-            use_main_task_only=True
+            use_main_task_only=self.use_main_task_only,
+            use_edh=self.use_edh,
         )
         return dataset
 
@@ -208,6 +273,8 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
             split_name = 'train' if not self.use_small_dataset else 'train_small'
             self.train_dataset = self.load_dataset(split_name)
             self.num_labels = max(self.num_labels, self.train_dataset.num_labels())
+            self.class_id_2_task_id = self.train_dataset.class_id_2_task_id
+            self.task_id_2_class_id = self.train_dataset.task_id_2_class_id
         if (stage in ["val", "valid", "validate"] or stage is None) and self.valid_seen_dataset is None:
             self.valid_seen_dataset = self.load_dataset('valid_seen')
             self.num_labels = max(self.num_labels, self.valid_seen_dataset.num_labels())

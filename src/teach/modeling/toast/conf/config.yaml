@@ -4,6 +4,7 @@ known_model_data_types:
   gru_text
   gru_text_subgoal
   task_from_text_single
+  task_from_text_single_game
 skip_model_load: True
 parent_dir_path: E:\
 data_folder_path: ${parent_dir_path}teach-dataset
@@ -47,6 +48,16 @@ gru_text_subgoal:
   use_follower_language: True
   use_single_optimizer: False
 task_from_text_single:
+  pretrained_model_name: distilbert-base-uncased
+  use_commander_language: True
+  use_follower_language: True
+  auto_lr_find: False
+  learning_rate: 2e-5
+  adam_epsilon: 1e-8
+  warmup_steps: 0
+  weight_decay: 0.0
+  insert_pad_token: False
+task_from_text_single_game:
   pretrained_model_name: distilbert-base-uncased
   use_commander_language: True
   use_follower_language: True

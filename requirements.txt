@@ -38,3 +38,4 @@ pytorch-lightning
 hydra-core
 wandb
 transformers
+torchtext

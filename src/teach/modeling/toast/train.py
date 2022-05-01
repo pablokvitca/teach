@@ -83,6 +83,22 @@ def load_or_create_model(cfg: DictConfig, datamodule: LightningDataModule):
                 train_batch_size=cfg.datamodule.batch_size,
                 eval_batch_size=cfg.datamodule.batch_size,
             )
+        if cfg.model_type == 'task_from_text_multi':
+            raise NotImplementedError("MULTI LABEL NOT IMPLEMENTED")
+        if cfg.model_type == 'task_from_text_single_game':
+            logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+            return TextClassificationModel(
+                cfg.task_from_text_single.pretrained_model_name,
+                num_labels=datamodule.num_labels,
+                learning_rate=cfg.task_from_text_single.learning_rate,
+                adam_epsilon=cfg.task_from_text_single.adam_epsilon,
+                warmup_steps=cfg.task_from_text_single.warmup_steps,
+                weight_decay=cfg.task_from_text_single.weight_decay,
+                train_batch_size=cfg.datamodule.batch_size,
+                eval_batch_size=cfg.datamodule.batch_size,
+            )
+        if cfg.model_type == 'task_from_text_multi_game':
+            raise NotImplementedError("MULTI LABEL NOT IMPLEMENTED")
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
@@ -136,6 +152,7 @@ def get_datamodule(cfg: DictConfig):
             use_commander_language=cfg.task_from_text_single.use_commander_language,
             use_follower_language=cfg.task_from_text_single.use_follower_language,
             use_main_task_only=True,
+            use_edh=True,
             insert_pad_token=cfg.task_from_text_single.insert_pad_token,
             use_small_dataset=cfg.datamodule.use_small_dataset,
             train_batch_size=cfg.datamodule.batch_size,
@@ -150,6 +167,37 @@ def get_datamodule(cfg: DictConfig):
             use_commander_language=cfg.task_from_text_multi.use_commander_language,
             use_follower_language=cfg.task_from_text_multi.use_follower_language,
             use_main_task_only=False,
+            use_edh=True,
+            insert_pad_token=cfg.task_from_text_single.insert_pad_token,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            train_batch_size=cfg.datamodule.batch_size,
+            eval_batch_size=cfg.datamodule.batch_size,
+            num_workers=cfg.datamodule.num_workers,
+        )
+    if cfg.model_type == 'task_from_text_single_game':
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        return TaskFromDialogueHistoryDataModule(
+            cfg.data_folder_path,
+            pretrained_transformer_name=cfg.task_from_text_single.pretrained_model_name,
+            use_commander_language=cfg.task_from_text_single.use_commander_language,
+            use_follower_language=cfg.task_from_text_single.use_follower_language,
+            use_main_task_only=True,
+            use_edh=False,
+            insert_pad_token=cfg.task_from_text_single.insert_pad_token,
+            use_small_dataset=cfg.datamodule.use_small_dataset,
+            train_batch_size=cfg.datamodule.batch_size,
+            eval_batch_size=cfg.datamodule.batch_size,
+            num_workers=cfg.datamodule.num_workers,
+        )
+    if cfg.model_type == 'task_from_text_multi_game':
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        return TaskFromDialogueHistoryDataModule(
+            cfg.data_folder_path,
+            pretrained_transformer_name=cfg.task_from_text_single.pretrained_model_name,
+            use_commander_language=cfg.task_from_text_single.use_commander_language,
+            use_follower_language=cfg.task_from_text_single.use_follower_language,
+            use_main_task_only=False,
+            use_edh=False,
             insert_pad_token=cfg.task_from_text_single.insert_pad_token,
             use_small_dataset=cfg.datamodule.use_small_dataset,
             train_batch_size=cfg.datamodule.batch_size,
@@ -178,6 +226,10 @@ def save_data_preprocessing(cfg: DictConfig, datamodule: LightningDataModule):
         logger.info("No need to save data preprocessing for task_from_text_single model")
     if cfg.model_type == 'task_from_text_multi':
         logger.info("No need to save data preprocessing for task_from_text_single model")
+    if cfg.model_type == 'task_from_text_single_game':
+        logger.info("No need to save data preprocessing for task_from_text_single_game model")
+    if cfg.model_type == 'task_from_text_multi_game':
+        logger.info("No need to save data preprocessing for task_from_text_single_game model")
 
 
 def check_loaded_datamodule(cfg: DictConfig, datamodule: LightningDataModule):
@@ -195,6 +247,10 @@ def check_loaded_datamodule(cfg: DictConfig, datamodule: LightningDataModule):
     if cfg.model_type == 'task_from_text_single':
         pass
     if cfg.model_type == 'task_from_text_multi':
+        pass
+    if cfg.model_type == 'task_from_text_single_game':
+        pass
+    if cfg.model_type == 'task_from_text_multi_game':
         pass
 
 
