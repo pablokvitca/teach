@@ -179,15 +179,11 @@ class GRUTextOnlyModel(pl.LightningModule):
             pre_decoder_output = (decoder_input, decoder_hidden)
         loss = loss.squeeze()
 
-        
-        # TODO: compute (and log, see below) accuracy, precision, recall, f1, hmm but sequence?
-        # TODO: find sequential metric to report instead -> Use Bleu score
         # TODO: How to get text translated predicted and reference for Bleu score, cannot use numbers.
-        #bleu = bleu_score(predicted, reference)
-        #self.log("bleu_score", bleu, batch_size=y.size(0))
+        bleu = bleu_score(predicted, reference)
+        self.log("bleu_score", bleu, batch_size=y.size(0))
         self.log("val_loss", loss, batch_size=y.size(0))
         return loss
-        
 
     def configure_optimizers(self):
         if self.use_single_optimizer:

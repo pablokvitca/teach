@@ -85,7 +85,10 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                 text_parts.append(f"{speaker}: {utterance}")
             elif speaker == "Driver" and self.use_follower_language:
                 text_parts.append(f"{speaker}: {utterance}")
-        return ".".join(text_parts)
+        return ". ".join(text_parts).replace("..", ".")
+
+    def join_edh_parts(self, prev_part, new_part):
+        return ". ".join([prev_part, new_part]).replace("..", ".")
 
     def _load_data(self):
         if self.use_edh:
@@ -112,7 +115,7 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                     x = instance_text_tensor
 
                     if game_id in data:
-                        data[game_id][0] += x
+                        data[game_id] = (instance_text_tensor, data[game_id][1], text_from_instance)
                     else:
                         game_tasks: List[Tuple[int, str, str]] = []
                         with open(game_file_path) as game_file:
@@ -135,7 +138,7 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                                 logger.info(f"Added new task (id: {task_id}) '{task_name}' as class #{class_id}")
                             y.append(self.task_id_2_class_id[task_id])
 
-                        data[game_id] = (x, y)
+                        data[game_id] = (x, y, text_from_instance)
                 else:
                     logger.warn(f"GAME FILE FOR EDH INSTANCE DID NOT EXIST \n\tgame: {game_file_path} \n\tedh_instance:{edh_instance_file_path}")
         return data.values()
@@ -185,10 +188,11 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx: int):
-        x, y = self.data[idx]
+        x, y, original_text = self.data[idx]
         return {
             **x,
-            "labels": y
+            "labels": y,
+            "_used_text_data": original_text,
         }
 
     @staticmethod

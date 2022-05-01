@@ -1,4 +1,4 @@
-model_type: task_from_text_single
+model_type: task_from_text_single_game
 known_model_data_types:
   naive
   gru_text
