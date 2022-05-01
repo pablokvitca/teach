@@ -141,7 +141,7 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                         data[game_id] = (x, y, text_from_instance)
                 else:
                     logger.warn(f"GAME FILE FOR EDH INSTANCE DID NOT EXIST \n\tgame: {game_file_path} \n\tedh_instance:{edh_instance_file_path}")
-        return data.values()
+        return list(data.values())
 
     def _load_data_edh(self):
         edh_dir = os.path.join(self.data_dir, 'edh_instances', self.split_name)
