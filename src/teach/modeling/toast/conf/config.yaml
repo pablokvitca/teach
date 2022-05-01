@@ -6,7 +6,7 @@ known_model_data_types:
   task_from_text_single
   task_from_text_single_game
 skip_model_load: True
-parent_dir_path: E:\
+parent_dir_path: MUST BE SET IN CLI ARGS PLEASE
 data_folder_path: ${parent_dir_path}teach-dataset
 model_checkpoints_pre_path: model_checkpoints_out
 model_load_name: epoch=0-step=44.ckpt
