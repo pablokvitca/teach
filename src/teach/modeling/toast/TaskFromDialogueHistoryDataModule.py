@@ -74,7 +74,7 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
         return len(self.known_tasks) if self._num_labels == -1 else self._num_labels
 
     def tokenize_input_language(self, text):
-        return self.tokenizer(text, truncation=True)
+        return self.tokenizer(text, truncation=True, padding=True)
 
     def get_text_from_instance(self, edh_instance):
         text_parts = []
@@ -86,9 +86,6 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
             elif speaker == "Driver" and self.use_follower_language:
                 text_parts.append(f"{speaker}: {utterance}")
         return ". ".join(text_parts).replace("..", ".")
-
-    def join_edh_parts(self, prev_part, new_part):
-        return ". ".join([prev_part, new_part]).replace("..", ".")
 
     def _load_data(self):
         if self.use_edh:
@@ -174,12 +171,15 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                     for task_id, task_name, task_desc in game_tasks:
                         self.known_tasks[task_id] += 1
                         if task_id not in self.task_id_2_class_id:
-                            self.task_id_2_name[task_id] = task_data["task_name"]
-                            self.task_id_2_class_id[task_id] = len(self.task_id_2_class_id)
-                            self.class_id_2_task_id[len(self.task_id_2_class_id) - 1] = task_id
+                            task_name = task_data["task_name"]
+                            self.task_id_2_name[task_id] = task_name
+                            class_id = len(self.task_id_2_class_id)
+                            self.task_id_2_class_id[task_id] = class_id
+                            self.class_id_2_task_id[class_id] = task_id
+                            logger.info(f"Added new task (id: {task_id}) '{task_name}' as class #{class_id}")
                         y.append(self.task_id_2_class_id[task_id])
 
-                    data.append((x, y))
+                    data.append((x, y, text_from_instance))
                 else:
                     logger.warn(f"GAME FILE FOR EDH INSTANCE DID NOT EXIST \n\tgame: {game_file_path} \n\tedh_instance:{edh_instance_file_path}")
         return data
