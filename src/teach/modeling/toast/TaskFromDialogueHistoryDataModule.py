@@ -152,6 +152,7 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
             use_commander_language: bool = True,
             use_follower_language: bool = True,
             use_main_task_only=True,
+            insert_pad_token=False,
             use_small_dataset: bool = False,
             train_batch_size: int = 16,
             eval_batch_size: int = 16,  # not used currently
@@ -177,6 +178,9 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
 
         self.pretrained_transformer_name = pretrained_transformer_name
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained_transformer_name, use_fast=True)
+        self.insert_pad_token = insert_pad_token
+        if insert_pad_token:
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
         self.num_labels = -1

@@ -55,6 +55,17 @@ task_from_text_single:
   adam_epsilon: 1e-8
   warmup_steps: 0
   weight_decay: 0.0
+  insert_pad_token: False
+task_from_text_multi:
+  pretrained_model_name: distilbert-base-uncased
+  use_commander_language: True
+  use_follower_language: True
+  auto_lr_find: False
+  learning_rate: 2e-5
+  adam_epsilon: 1e-8
+  warmup_steps: 0
+  weight_decay: 0.0
+  insert_pad_token: False
 trainer:
   checkpoints_save_top_k: 3
   acc_device: gpu
