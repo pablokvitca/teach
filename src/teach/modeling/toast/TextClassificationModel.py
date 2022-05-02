@@ -69,8 +69,8 @@ class TextClassificationModel(pl.LightningModule):
 
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         loss = torch.stack([x["loss"] for x in outputs]).mean()
-        preds = torch.stack([x["preds"] for x in outputs])
-        labels = torch.stack([x["labels"] for x in outputs])
+        preds = torch.cat([x["preds"] for x in outputs])
+        labels = torch.cat([x["labels"] for x in outputs])
 
         acc = ((preds.flatten() == labels.flatten()).sum().item()) / labels.flatten().size(0)
 
@@ -80,7 +80,7 @@ class TextClassificationModel(pl.LightningModule):
     def setup(self, stage=None):
         if stage == 'fit':
             train_loader = self.trainer.datamodule.train_dataloader()
-            tb_size = self.hparams.train_batch_size * max(1, self.trainer.gpus if isinstance(self.trainer.gpus, int) else len(self.trainer.gpus))
+            tb_size = self.hparams.train_batch_size * max(1, self.trainer.num_devices)
             ab_size = self.trainer.accumulate_grad_batches * float(self.trainer.max_epochs)
             self.total_steps = (len(train_loader.dataset) // tb_size) // ab_size
 
