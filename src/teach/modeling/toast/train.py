@@ -340,6 +340,10 @@ def main(cfg: DictConfig) -> None:
 
     logger.info(f"Done! Best model at {checkpoint_callback.best_model_path}")
 
+    wandb_logger.save()
+    wandb_logger.finalize()
+    wandb_logger.close()
+
 
 if __name__ == "__main__":
     main()
