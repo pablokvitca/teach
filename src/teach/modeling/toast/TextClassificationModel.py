@@ -48,11 +48,27 @@ class TextClassificationModel(pl.LightningModule):
         # NOTE: if modified, also modify the validation step
         y = batch["labels"]
         outputs = self.forward(batch)
-        loss = outputs[0]
+
+        loss, logits = outputs[0], outputs[1]
+        preds = logits.argmax(dim=1)
 
         self.log("train_loss", loss, batch_size=y.size(0))
 
-        return loss
+        return {
+            "loss": loss,
+            "preds": preds,
+            "labels": y
+        }
+
+    def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
+        loss = torch.stack([x["loss"] for x in outputs]).mean()
+        preds = torch.cat([x["preds"] for x in outputs])
+        labels = torch.cat([x["labels"] for x in outputs])
+
+        acc = ((preds.flatten() == labels.flatten()).sum().item()) / labels.flatten().size(0)
+
+        self.log("train_epoch_acc", acc, prog_bar=True)
+        self.log("train_epoch_loss", loss, prog_bar=True)
 
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         # similar to the training step but stop on output of EOS token
