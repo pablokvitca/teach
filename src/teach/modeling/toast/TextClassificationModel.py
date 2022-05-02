@@ -80,7 +80,7 @@ class TextClassificationModel(pl.LightningModule):
     def setup(self, stage=None):
         if stage == 'fit':
             train_loader = self.trainer.datamodule.train_dataloader()
-            tb_size = self.hparams.train_batch_size * max(1, len(self.trainer.gpus))
+            tb_size = self.hparams.train_batch_size * max(1, self.trainer.gpus if isinstance(self.trainer.gpus, int) else len(self.trainer.gpus))
             ab_size = self.trainer.accumulate_grad_batches * float(self.trainer.max_epochs)
             self.total_steps = (len(train_loader.dataset) // tb_size) // ab_size
 

@@ -192,8 +192,8 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
         return {
             **x,
             "labels": y,
-            "label": y,
-            "_used_text_data": original_text,
+            # "label": y,
+            # "_used_text_data": original_text,
         }
 
     @staticmethod
