@@ -54,7 +54,7 @@ class TextClassificationModel(pl.LightningModule):
     def training_step(self, batch, batch_idx, optimizer_idx=None) -> STEP_OUTPUT:
         # NOTE: if modified, also modify the validation step
         y = batch["labels"]
-        outputs = self.forward(batch)
+        outputs = self(batch)
 
         loss, logits = outputs[0], outputs[1]
         preds = logits.argmax(dim=1)
@@ -99,7 +99,7 @@ class TextClassificationModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         # similar to the training step but stop on output of EOS token
         y = batch["labels"]
-        outputs = self.forward(batch)
+        outputs = self(batch)
         loss, logits = outputs[0], outputs[1]
         preds = logits.argmax(dim=1)
 
