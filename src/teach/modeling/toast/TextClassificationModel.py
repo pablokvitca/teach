@@ -60,7 +60,7 @@ class TextClassificationModel(pl.LightningModule):
             "labels": y
         }
 
-    def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
+    def training_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         loss = torch.stack([x["loss"] for x in outputs]).mean()
         preds = torch.cat([x["preds"] for x in outputs])
         labels = torch.cat([x["labels"] for x in outputs])
