@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 from torch.optim import AdamW
 from transformers import AutoConfig, AutoModelForSequenceClassification, get_linear_schedule_with_warmup
 from typing import Union, List
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 from teach.logger import create_logger
 
@@ -62,13 +63,26 @@ class TextClassificationModel(pl.LightningModule):
 
     def training_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         loss = torch.stack([x["loss"] for x in outputs]).mean()
-        preds = torch.cat([x["preds"] for x in outputs])
-        labels = torch.cat([x["labels"] for x in outputs])
+        preds = torch.cat([x["preds"] for x in outputs]).flatten()
+        labels = torch.cat([x["labels"] for x in outputs]).flatten()
 
-        acc = ((preds.flatten() == labels.flatten()).sum().item()) / labels.flatten().size(0)
+        count_correct = (preds == labels).sum().item()
+        total_counts = labels.size(0)
+        preds = preds.cpu().numpy()
+        labels = preds.cpu().numpy()
+        accuracy = accuracy_score(labels, preds)
+        precision = precision_score(labels, preds, average="macro")
+        recall = recall_score(labels, preds, average="macro")
+        f1 = f1_score(labels, preds, average="macro")
 
-        self.log("train_epoch_acc", acc, prog_bar=True)
-        self.log("train_epoch_loss", loss, prog_bar=True)
+        self.log("training/accuracy", accuracy, prog_bar=True)
+        self.log("training/precision", precision, prog_bar=True)
+        self.log("training/recall", recall, prog_bar=True)
+        self.log("training/f1", f1, prog_bar=True)
+        self.log("training/count_correct", count_correct, prog_bar=True)
+        self.log("training/total_counts", total_counts, prog_bar=True)
+
+        self.log("training/loss", loss, prog_bar=True)
 
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         # similar to the training step but stop on output of EOS token
@@ -85,13 +99,26 @@ class TextClassificationModel(pl.LightningModule):
 
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         loss = torch.stack([x["loss"] for x in outputs]).mean()
-        preds = torch.cat([x["preds"] for x in outputs])
-        labels = torch.cat([x["labels"] for x in outputs])
+        preds = torch.cat([x["preds"] for x in outputs]).flatten()
+        labels = torch.cat([x["labels"] for x in outputs]).flatten()
 
-        acc = ((preds.flatten() == labels.flatten()).sum().item()) / labels.flatten().size(0)
+        count_correct = (preds == labels).sum().item()
+        total_counts = labels.size(0)
+        preds = preds.cpu().numpy()
+        labels = preds.cpu().numpy()
+        accuracy = accuracy_score(labels, preds)
+        precision = precision_score(labels, preds, average="macro")
+        recall = recall_score(labels, preds, average="macro")
+        f1 = f1_score(labels, preds, average="macro")
 
-        self.log("val_acc", acc, prog_bar=True)
-        self.log("val_loss", loss, prog_bar=True)
+        self.log("validation/accuracy", accuracy, prog_bar=True)
+        self.log("validation/precision", precision, prog_bar=True)
+        self.log("validation/recall", recall, prog_bar=True)
+        self.log("validation/f1", f1, prog_bar=True)
+        self.log("validation/count_correct", count_correct, prog_bar=True)
+        self.log("validation/total_counts", total_counts, prog_bar=True)
+
+        self.log("validation/loss", loss, prog_bar=True)
 
     def setup(self, stage=None):
         if stage == 'fit':

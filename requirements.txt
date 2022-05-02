@@ -39,3 +39,4 @@ hydra-core
 wandb
 transformers
 torchtext
+scikit-learn
