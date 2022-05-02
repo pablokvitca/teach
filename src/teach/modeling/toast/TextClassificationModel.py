@@ -87,6 +87,9 @@ class TextClassificationModel(pl.LightningModule):
 
         self.log(f"{_type}/loss", loss, prog_bar=True)
 
+        if _type == 'validation':
+            self.log('val_loss', loss, prog_bar=True)
+
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         # similar to the training step but stop on output of EOS token
         y = batch["labels"]
