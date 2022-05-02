@@ -61,7 +61,7 @@ task_from_text_single:
 task_from_text_single_game:
   pretrained_model_name: distilbert-base-uncased
   use_commander_language: True
-  use_follower_language: True
+  use_follower_language: False
   auto_lr_find: False
   learning_rate: 2e-5
   adam_epsilon: 1e-8

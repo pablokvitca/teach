@@ -163,7 +163,7 @@ def get_datamodule(cfg: DictConfig):
             num_workers=cfg.datamodule.num_workers,
         )
     if cfg.model_type == 'task_from_text_multi':
-        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_multi.pretrained_model_name}")
         return TaskFromDialogueHistoryDataModule(
             cfg.data_folder_path,
             pretrained_transformer_name=cfg.task_from_text_multi.pretrained_model_name,
@@ -171,37 +171,37 @@ def get_datamodule(cfg: DictConfig):
             use_follower_language=cfg.task_from_text_multi.use_follower_language,
             use_main_task_only=False,
             use_edh=True,
-            insert_pad_token=cfg.task_from_text_single.insert_pad_token,
+            insert_pad_token=cfg.task_from_text_multi.insert_pad_token,
             use_small_dataset=cfg.datamodule.use_small_dataset,
             train_batch_size=cfg.datamodule.batch_size,
             eval_batch_size=cfg.datamodule.batch_size,
             num_workers=cfg.datamodule.num_workers,
         )
     if cfg.model_type == 'task_from_text_single_game':
-        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single_game.pretrained_model_name}")
         return TaskFromDialogueHistoryDataModule(
             cfg.data_folder_path,
-            pretrained_transformer_name=cfg.task_from_text_single.pretrained_model_name,
-            use_commander_language=cfg.task_from_text_single.use_commander_language,
-            use_follower_language=cfg.task_from_text_single.use_follower_language,
+            pretrained_transformer_name=cfg.task_from_text_single_game.pretrained_model_name,
+            use_commander_language=cfg.task_from_text_single_game.use_commander_language,
+            use_follower_language=cfg.task_from_text_single_game.use_follower_language,
             use_main_task_only=True,
             use_edh=False,
-            insert_pad_token=cfg.task_from_text_single.insert_pad_token,
+            insert_pad_token=cfg.task_from_text_single_game.insert_pad_token,
             use_small_dataset=cfg.datamodule.use_small_dataset,
             train_batch_size=cfg.datamodule.batch_size,
             eval_batch_size=cfg.datamodule.batch_size,
             num_workers=cfg.datamodule.num_workers,
         )
     if cfg.model_type == 'task_from_text_multi_game':
-        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
+        logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_multi_game.pretrained_model_name}")
         return TaskFromDialogueHistoryDataModule(
             cfg.data_folder_path,
-            pretrained_transformer_name=cfg.task_from_text_single.pretrained_model_name,
-            use_commander_language=cfg.task_from_text_single.use_commander_language,
-            use_follower_language=cfg.task_from_text_single.use_follower_language,
+            pretrained_transformer_name=cfg.task_from_text_multi_game.pretrained_model_name,
+            use_commander_language=cfg.task_from_text_multi_game.use_commander_language,
+            use_follower_language=cfg.task_from_text_multi_game.use_follower_language,
             use_main_task_only=False,
             use_edh=False,
-            insert_pad_token=cfg.task_from_text_single.insert_pad_token,
+            insert_pad_token=cfg.task_from_text_multi_game.insert_pad_token,
             use_small_dataset=cfg.datamodule.use_small_dataset,
             train_batch_size=cfg.datamodule.batch_size,
             eval_batch_size=cfg.datamodule.batch_size,
