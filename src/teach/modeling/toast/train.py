@@ -347,20 +347,9 @@ def main(cfg: DictConfig) -> None:
     datamodule.setup("val_unseen")
     datamodule.setup("test")
     logger.info("Testing...")
-    best_model.test_name = "validation_seen"
-    trainer.test(
-        best_model,
-        dataloaders=datamodule.valid_seen_dataset()
-    )
-    best_model.test_name = "validation_unseen"
     trainer.test(
         best_model,
         dataloaders=datamodule.val_unseen_dataloader()
-    )
-    best_model.test_name = "test_seen"
-    trainer.test(
-        best_model,
-        dataloaders=datamodule.test_dataloader()
     )
 
     wandb_logger.save()

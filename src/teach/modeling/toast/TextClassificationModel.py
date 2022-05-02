@@ -126,7 +126,7 @@ class TextClassificationModel(pl.LightningModule):
         }
 
     def test_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
-        return self._epoch_end(f"test/{self.test_name}", outputs)
+        return self._epoch_end(f"validation_unseen", outputs)
 
     def setup(self, stage=None):
         if stage == 'fit':
