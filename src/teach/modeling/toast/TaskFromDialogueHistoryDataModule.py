@@ -246,7 +246,7 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
         self.insert_pad_token = insert_pad_token
         if insert_pad_token:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer, padding='max_length')
 
         self.num_labels = -1
         self.class_id_2_task_id = None
