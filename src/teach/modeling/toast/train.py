@@ -345,7 +345,6 @@ def main(cfg: DictConfig) -> None:
 
     datamodule.setup("val")
     datamodule.setup("val_unseen")
-    datamodule.setup("test")
     logger.info("Testing...")
     trainer.test(
         best_model,
