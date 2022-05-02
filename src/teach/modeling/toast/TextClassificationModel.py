@@ -64,8 +64,28 @@ class TextClassificationModel(pl.LightningModule):
     def training_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         self._epoch_end("training", outputs)
 
-    def _epoch_end(self, type: str, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
-        self._epoch_end("training", outputs)
+    def _epoch_end(self, _type: str, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
+        loss = torch.stack([x["loss"] for x in outputs]).mean()
+        preds = torch.cat([x["preds"] for x in outputs]).flatten()
+        labels = torch.cat([x["labels"] for x in outputs]).flatten()
+
+        count_correct = (preds == labels).sum().item()
+        total_counts = labels.size(0)
+        preds = preds.cpu().numpy()
+        labels = labels.cpu().numpy()
+        accuracy = accuracy_score(labels, preds)
+        precision = precision_score(labels, preds, average="macro")
+        recall = recall_score(labels, preds, average="macro")
+        f1 = f1_score(labels, preds, average="macro")
+
+        self.log(f"{_type}/accuracy", accuracy, prog_bar=True)
+        self.log(f"{_type}/precision", precision, prog_bar=True)
+        self.log(f"{_type}/recall", recall, prog_bar=True)
+        self.log(f"{_type}/f1", f1, prog_bar=True)
+        self.log(f"{_type}/count_correct", count_correct, prog_bar=True)
+        self.log(f"{_type}/total_counts", total_counts, prog_bar=True)
+
+        self.log(f"{_type}/loss", loss, prog_bar=True)
 
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         # similar to the training step but stop on output of EOS token
@@ -81,27 +101,7 @@ class TextClassificationModel(pl.LightningModule):
         }
 
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
-        loss = torch.stack([x["loss"] for x in outputs]).mean()
-        preds = torch.cat([x["preds"] for x in outputs]).flatten()
-        labels = torch.cat([x["labels"] for x in outputs]).flatten()
-
-        count_correct = (preds == labels).sum().item()
-        total_counts = labels.size(0)
-        preds = preds.cpu().numpy()
-        labels = preds.cpu().numpy()
-        accuracy = accuracy_score(labels, preds)
-        precision = precision_score(labels, preds, average="macro")
-        recall = recall_score(labels, preds, average="macro")
-        f1 = f1_score(labels, preds, average="macro")
-
-        self.log("validation/accuracy", accuracy, prog_bar=True)
-        self.log("validation/precision", precision, prog_bar=True)
-        self.log("validation/recall", recall, prog_bar=True)
-        self.log("validation/f1", f1, prog_bar=True)
-        self.log("validation/count_correct", count_correct, prog_bar=True)
-        self.log("validation/total_counts", total_counts, prog_bar=True)
-
-        self.log("validation/loss", loss, prog_bar=True)
+        return self._epoch_end("validation", outputs)
 
     def setup(self, stage=None):
         if stage == 'fit':
