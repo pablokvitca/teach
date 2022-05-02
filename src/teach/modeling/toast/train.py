@@ -317,7 +317,7 @@ def main(cfg: DictConfig) -> None:
         num_sanity_val_steps=cfg.trainer.num_sanity_val_steps,
         detect_anomaly=cfg.trainer.detect_anomaly,
         fast_dev_run=cfg.trainer.fast_dev_run,
-        overfit_batches=1,
+        # overfit_batches=1,
         # check_val_every_n_epoch=cfg.trainer.check_val_every_n_epoch,
         # val_check_interval=cfg.trainer.val_check_interval,
         logger=wandb_logger
