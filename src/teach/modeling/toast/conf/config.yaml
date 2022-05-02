@@ -57,6 +57,7 @@ task_from_text_single:
   warmup_steps: 0
   weight_decay: 0.0
   insert_pad_token: False
+  freeze_encoder: True
 task_from_text_single_game:
   pretrained_model_name: distilbert-base-uncased
   use_commander_language: True
@@ -67,6 +68,7 @@ task_from_text_single_game:
   warmup_steps: 0
   weight_decay: 0.0
   insert_pad_token: False
+  freeze_encoder: True
 task_from_text_multi:
   pretrained_model_name: distilbert-base-uncased
   use_commander_language: True

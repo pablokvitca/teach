@@ -23,6 +23,7 @@ class TextClassificationModel(pl.LightningModule):
             weight_decay: float = 0.0,
             train_batch_size=16,
             eval_batch_size=16,
+            freeze_encoder=False,
             **kwargs
     ):
         super().__init__()
@@ -33,6 +34,11 @@ class TextClassificationModel(pl.LightningModule):
 
         self.hg_config = AutoConfig.from_pretrained(self.pretrained_model_name, num_labels=self.num_labels)
         self.model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, config=self.hg_config)
+
+        self.freeze_encoder = freeze_encoder
+        if self.freeze_encoder:
+            for param in self.model.base_model.parameters():
+                param.requires_grad = False
 
         self.learning_rate = learning_rate
         self.adam_epsilon = adam_epsilon,

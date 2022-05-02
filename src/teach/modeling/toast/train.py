@@ -20,6 +20,7 @@ from pytorch_lightning.loggers import WandbLogger
 
 from teach.modeling.toast.TaskFromDialogueHistoryDataModule import TaskFromDialogueHistoryDataModule
 from teach.modeling.toast.TextClassificationModel import TextClassificationModel
+from teach.modeling.toast.utils import flatten_cfg_dict
 
 logger = create_logger(__name__, level=logging.INFO)
 
@@ -82,20 +83,22 @@ def load_or_create_model(cfg: DictConfig, datamodule: LightningDataModule):
                 weight_decay=cfg.task_from_text_single.weight_decay,
                 train_batch_size=cfg.datamodule.batch_size,
                 eval_batch_size=cfg.datamodule.batch_size,
+                freeze_encoder=cfg.task_from_text_single.freeze_encoder,
             )
         if cfg.model_type == 'task_from_text_multi':
             raise NotImplementedError("MULTI LABEL NOT IMPLEMENTED")
         if cfg.model_type == 'task_from_text_single_game':
             logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
             return TextClassificationModel(
-                cfg.task_from_text_single.pretrained_model_name,
+                cfg.task_from_text_single_game.pretrained_model_name,
                 num_labels=datamodule.num_labels,
-                learning_rate=cfg.task_from_text_single.learning_rate,
-                adam_epsilon=cfg.task_from_text_single.adam_epsilon,
-                warmup_steps=cfg.task_from_text_single.warmup_steps,
-                weight_decay=cfg.task_from_text_single.weight_decay,
+                learning_rate=cfg.task_from_text_single_game.learning_rate,
+                adam_epsilon=cfg.task_from_text_single_game.adam_epsilon,
+                warmup_steps=cfg.task_from_text_single_game.warmup_steps,
+                weight_decay=cfg.task_from_text_single_game.weight_decay,
                 train_batch_size=cfg.datamodule.batch_size,
                 eval_batch_size=cfg.datamodule.batch_size,
+                freeze_encoder=cfg.task_from_text_single_game.freeze_encoder,
             )
         if cfg.model_type == 'task_from_text_multi_game':
             raise NotImplementedError("MULTI LABEL NOT IMPLEMENTED")
@@ -264,6 +267,7 @@ def main(cfg: DictConfig) -> None:
         log_model=cfg.wandb.log_model,
         config=cfg,
     )
+    wandb_logger.log_hyperparams(flatten_cfg_dict(cfg))
 
     if cfg.model_type not in cfg.known_model_data_types:
         raise ValueError(f"Unknown model type {cfg.model_type}")

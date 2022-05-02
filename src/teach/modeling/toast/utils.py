@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from omegaconf import DictConfig
 
 from teach.logger import create_logger
 logger = create_logger(__name__)
@@ -26,3 +27,13 @@ def pad_list(_list, pad_size, pad_token='<PAD>', max_tokens=None):
     max_tokens = pad_size if max_tokens is None or max_tokens < pad_size else max_tokens
     _list = _list[:max_tokens]
     return _list + [pad_token] * (pad_size - len(_list))
+
+def flatten_cfg_dict(cfg: DictConfig, sep="."):
+    res = {}
+    for key, value in cfg.items():
+        if isinstance(value, dict):
+            for subkey, subvalue in flatten_cfg_dict(value):
+                res[f"{key}{sep}{subkey}"] = subvalue
+        else:
+            res[key] = value
+    return res
