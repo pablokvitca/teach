@@ -112,6 +112,22 @@ class TextClassificationModel(pl.LightningModule):
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         return self._epoch_end("validation", outputs)
 
+    def test_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        # similar to the training step but stop on output of EOS token
+        y = batch["labels"]
+        outputs = self(batch)
+        loss, logits = outputs[0], outputs[1]
+        preds = logits.argmax(dim=1)
+
+        return {
+            "loss": loss,
+            "preds": preds,
+            "labels": y
+        }
+
+    def test_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
+        return self._epoch_end(f"test/{self.test_name}", outputs)
+
     def setup(self, stage=None):
         if stage == 'fit':
             train_loader = self.trainer.datamodule.train_dataloader()

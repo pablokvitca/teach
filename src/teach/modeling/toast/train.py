@@ -341,6 +341,28 @@ def main(cfg: DictConfig) -> None:
 
     logger.info(f"Done! Best model at {checkpoint_callback.best_model_path}")
 
+    best_model = model.__class__.load_from_checkpoint(checkpoint_callback.best_model_path)
+
+    datamodule.setup("val")
+    datamodule.setup("val_unseen")
+    datamodule.setup("test")
+    logger.info("Testing...")
+    best_model.test_name = "validation_seen"
+    trainer.test(
+        best_model,
+        dataloaders=datamodule.valid_seen_dataset()
+    )
+    best_model.test_name = "validation_unseen"
+    trainer.test(
+        best_model,
+        dataloaders=datamodule.val_unseen_dataloader()
+    )
+    best_model.test_name = "test_seen"
+    trainer.test(
+        best_model,
+        dataloaders=datamodule.test_dataloader()
+    )
+
     wandb_logger.save()
     wandb_logger.finalize("done")
     wandb_logger.close()
