@@ -217,9 +217,9 @@ class NaiveDataModule(LightningDataModule):
         if (stage in ["val_unseen", "valid_unseen", "validate_unseen"] or stage is None) and self.valid_unseen_dataset is None:
             self.valid_unseen_dataset = self.load_dataset('valid_unseen')
         if (stage == "test" or stage is None) and self.test_seen_dataset is None:
-            self.test_seen_dataset = self.load_dataset('test_seen')
+            self.test_seen_dataset = self.load_dataset('valid_unseen')
         if (stage == "test_unseen" or stage is None) and self.test_unseen_dataset is None:
-            self.test_unseen_dataset = self.load_dataset('test_unseen')
+            self.test_unseen_dataset = self.load_dataset('valid_unseen')
 
     def train_dataloader(self):
         if self.train_dataset is None:
