@@ -20,6 +20,7 @@ from pytorch_lightning.loggers import WandbLogger
 
 from teach.modeling.toast.TaskFromDialogueHistoryDataModule import TaskFromDialogueHistoryDataModule
 from teach.modeling.toast.TextClassificationModel import TextClassificationModel
+from teach.modeling.toast.TextMultiLabelClassificationModel import TextMultiLabelClassificationModel
 from teach.modeling.toast.utils import flatten_cfg_dict
 
 logger = create_logger(__name__, level=logging.INFO)
@@ -39,6 +40,12 @@ def load_or_create_model(cfg: DictConfig, datamodule: LightningDataModule):
             return GRUTextOnlyModel.load_from_checkpoint(path)
         if cfg.model_type == 'task_from_text_single':
             return TextClassificationModel.load_from_checkpoint(path)
+        if cfg.model_type == 'task_from_text_single_game':
+            return TextClassificationModel.load_from_checkpoint(path)
+        if cfg.model_type == 'task_from_text_multi':
+            return TextMultiLabelClassificationModel.load_from_checkpoint(path)
+        if cfg.model_type == 'task_from_text_multi_ame':
+            return TextMultiLabelClassificationModel.load_from_checkpoint(path)
     else:
         logger.info(f"Could not find model to load at {path}. Creating new model.")
         if cfg.model_type == 'naive':
@@ -86,7 +93,19 @@ def load_or_create_model(cfg: DictConfig, datamodule: LightningDataModule):
                 freeze_encoder=cfg.task_from_text_single.freeze_encoder,
             )
         if cfg.model_type == 'task_from_text_multi':
-            raise NotImplementedError("MULTI LABEL NOT IMPLEMENTED")
+            logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_multi.pretrained_model_name}")
+            return TextMultiLabelClassificationModel(
+                cfg.task_from_text_multi.pretrained_model_name,
+                num_labels=datamodule.num_labels,
+                learning_rate=cfg.task_from_text_multi.learning_rate,
+                adam_epsilon=cfg.task_from_text_multi.adam_epsilon,
+                warmup_steps=cfg.task_from_text_multi.warmup_steps,
+                weight_decay=cfg.task_from_text_multi.weight_decay,
+                train_batch_size=cfg.datamodule.batch_size,
+                eval_batch_size=cfg.datamodule.batch_size,
+                freeze_encoder=cfg.task_from_text_multi.freeze_encoder,
+                label_threshold=cfg.task_from_text_multi.label_threshold,
+            )
         if cfg.model_type == 'task_from_text_single_game':
             logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_single.pretrained_model_name}")
             return TextClassificationModel(
@@ -101,7 +120,19 @@ def load_or_create_model(cfg: DictConfig, datamodule: LightningDataModule):
                 freeze_encoder=cfg.task_from_text_single_game.freeze_encoder,
             )
         if cfg.model_type == 'task_from_text_multi_game':
-            raise NotImplementedError("MULTI LABEL NOT IMPLEMENTED")
+            logger.info(f"Using HuggingFace Pre-Trained transformer {cfg.task_from_text_multi_game.pretrained_model_name}")
+            return TextMultiLabelClassificationModel(
+                cfg.task_from_text_multi_game.pretrained_model_name,
+                num_labels=datamodule.num_labels,
+                learning_rate=cfg.task_from_text_multi_game.learning_rate,
+                adam_epsilon=cfg.task_from_text_multi_game.adam_epsilon,
+                warmup_steps=cfg.task_from_text_multi_game.warmup_steps,
+                weight_decay=cfg.task_from_text_multi_game.weight_decay,
+                train_batch_size=cfg.datamodule.batch_size,
+                eval_batch_size=cfg.datamodule.batch_size,
+                freeze_encoder=cfg.task_from_text_multi_game.freeze_encoder,
+                label_threshold=cfg.task_from_text_multi_game.label_threshold,
+            )
     raise ValueError(f"Unknown model type {cfg.model_type}")
 
 
