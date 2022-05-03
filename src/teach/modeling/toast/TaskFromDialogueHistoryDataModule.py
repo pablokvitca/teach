@@ -195,8 +195,8 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
     @staticmethod
     def recursively_get_task_data(task_data) -> List[Tuple[int, str, str]]:
         data = [(task_data["task_id"], task_data["task_name"], task_data["desc"])]
-        for component in task_data["components"]:
-            if "task" in component.keys():
+        for component_key, component in task_data["components"].items():
+            if "task" in component:
                 component_task_data = component["task"]
                 data.extend(TaskFromDialogueHistoryTEACHDataset.recursively_get_task_data(component_task_data))
         return data
