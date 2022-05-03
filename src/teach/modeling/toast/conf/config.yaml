@@ -1,10 +1,12 @@
-model_type: task_from_text_single_game
+model_type: task_from_text_multi_game
 known_model_data_types:
   naive
   gru_text
   gru_text_subgoal
   task_from_text_single
   task_from_text_single_game
+  task_from_text_multi
+  task_from_text_multi_game
 skip_model_load: True
 parent_dir_path: MUST BE SET IN CLI ARGS PLEASE
 data_folder_path: ${parent_dir_path}teach-dataset
@@ -72,13 +74,27 @@ task_from_text_single_game:
 task_from_text_multi:
   pretrained_model_name: distilbert-base-uncased
   use_commander_language: True
-  use_follower_language: True
+  use_follower_language: False
   auto_lr_find: False
   learning_rate: 2e-5
   adam_epsilon: 1e-8
   warmup_steps: 0
   weight_decay: 0.0
   insert_pad_token: False
+  freeze_encoder: True
+  label_threshold: 0.5
+task_from_text_multi_game:
+  pretrained_model_name: distilbert-base-uncased
+  use_commander_language: True
+  use_follower_language: False
+  auto_lr_find: False
+  learning_rate: 2e-5
+  adam_epsilon: 1e-8
+  warmup_steps: 0
+  weight_decay: 0.0
+  insert_pad_token: False
+  freeze_encoder: True
+  label_threshold: 0.5
 trainer:
   checkpoints_save_top_k: 3
   acc_device: gpu
