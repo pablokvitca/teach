@@ -114,7 +114,6 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                     if game_id in data:
                         data[game_id] = (instance_text_tensor, data[game_id][1], text_from_instance)
                     else:
-                        game_tasks: List[Tuple[int, str, str]] = []
                         with open(game_file_path) as game_file:
                             game = json.load(game_file)
                             task_data = game["tasks"][0]
@@ -123,7 +122,7 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                             else:
                                 game_tasks = TaskFromDialogueHistoryTEACHDataset.recursively_get_task_data(task_data)
 
-                        y = []
+                        y = set()
                         for task_id, task_name, task_desc in game_tasks:
                             self.known_tasks[task_id] += 1
                             if task_id not in self.task_id_2_class_id:
@@ -133,9 +132,9 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                                 self.task_id_2_class_id[task_id] = class_id
                                 self.class_id_2_task_id[class_id] = task_id
                                 logger.info(f"Added new task (id: {task_id}) '{task_name}' as class #{class_id}")
-                            y.append(self.task_id_2_class_id[task_id])
+                            y.add(self.task_id_2_class_id[task_id])
 
-                        data[game_id] = (x, y, text_from_instance)
+                        data[game_id] = (x, sorted(list(y)), text_from_instance)
                 else:
                     logger.warn(f"GAME FILE FOR EDH INSTANCE DID NOT EXIST \n\tgame: {game_file_path} \n\tedh_instance:{edh_instance_file_path}")
         return list(data.values())
@@ -158,7 +157,6 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                     instance_text_tensor = self.tokenize_input_language(text_from_instance)
                     x = instance_text_tensor
 
-                    game_tasks: List[Tuple[int, str, str]] = []
                     with open(game_file_path) as game_file:
                         game = json.load(game_file)
                         task_data = game["tasks"][0]
@@ -167,7 +165,7 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                         else:
                             game_tasks = TaskFromDialogueHistoryTEACHDataset.recursively_get_task_data(task_data)
 
-                    y = []
+                    y = set()
                     for task_id, task_name, task_desc in game_tasks:
                         self.known_tasks[task_id] += 1
                         if task_id not in self.task_id_2_class_id:
@@ -177,9 +175,9 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                             self.task_id_2_class_id[task_id] = class_id
                             self.class_id_2_task_id[class_id] = task_id
                             logger.info(f"Added new task (id: {task_id}) '{task_name}' as class #{class_id}")
-                        y.append(self.task_id_2_class_id[task_id])
+                        y.add(self.task_id_2_class_id[task_id])
 
-                    data.append((x, y, text_from_instance))
+                    data.append((x, sorted(list(y)), text_from_instance))
                 else:
                     logger.warn(f"GAME FILE FOR EDH INSTANCE DID NOT EXIST \n\tgame: {game_file_path} \n\tedh_instance:{edh_instance_file_path}")
         return data
@@ -192,8 +190,6 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
         return {
             **x,
             "labels": y,
-            # "label": y,
-            # "_used_text_data": original_text,
         }
 
     @staticmethod
