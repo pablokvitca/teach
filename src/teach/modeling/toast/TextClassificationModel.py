@@ -149,13 +149,14 @@ class TextClassificationModel(pl.LightningModule):
             },
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adam_epsilon)
-        scheduler = get_linear_schedule_with_warmup(
+        linear_scheduler = get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=self.hparams.warmup_steps,
             num_training_steps=self.total_steps
         )
         scheduler = {
-            "scheduler": scheduler,
+            "scheduler": linear_scheduler,
             "interval": "step",
             "frequency": 1
         }
+        return [optimizer], [scheduler]

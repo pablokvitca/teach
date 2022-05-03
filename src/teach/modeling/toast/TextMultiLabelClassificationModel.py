@@ -1,6 +1,8 @@
 import torch
 from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 import pytorch_lightning as pl
+from sklearn.preprocessing import MultiLabelBinarizer
+from torch import Tensor
 from torch.optim import AdamW
 from transformers import AutoConfig, AutoModelForSequenceClassification, get_linear_schedule_with_warmup
 from typing import Union, List
@@ -51,91 +53,86 @@ class TextMultiLabelClassificationModel(pl.LightningModule):
 
         self.label_threshold = label_threshold
 
+        self.loss_fn = torch.nn.BCEWithLogitsLoss()
+
+        self.mlb = MultiLabelBinarizer(classes=range(self.num_labels))
+
     def forward(self, x):
         return self.model(**x)
 
     def training_step(self, batch, batch_idx, optimizer_idx=None) -> STEP_OUTPUT:
-        # NOTE: if modified, also modify the validation step
-        y = batch["labels"]
-        outputs = self(batch)
-        _, logits = outputs[0], outputs[1]
-
-        loss = self.loss_fct(
-            logits.view(-1, self.num_labels),
-            y.float().view(-1, self.num_labels)) \
-            if len(y) is not None else 0
-        preds = torch.where(logits.sigmoid(dim=1) > self.label_threshold, 1, 0)
-
-        self.log("train_loss", loss, batch_size=y.size(0))
-
-        return {
-            "loss": loss,
-            "preds": preds,
-            "labels": y
-        }
+        res = self._single_step(batch, batch_idx)
+        self.log("train_loss", res["loss"], batch_size=res["labels"].size(0))
+        return res
 
     def training_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         self._epoch_end("training", outputs)
 
     def _epoch_end(self, _type: str, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         loss = torch.stack([x["loss"] for x in outputs]).mean()
-        preds = torch.cat([x["preds"] for x in outputs]).flatten()
-        labels = torch.cat([x["labels"] for x in outputs]).flatten()
+        preds = self.mlb.fit_transform(
+            [[list(preds.cpu().numpy()) for preds in x["preds"]] for x in outputs][0]
+        )
+        labels = self.mlb.fit_transform(
+            [[[label for label in labels if label != -1]
+              for labels in x["labels"].long().tolist()]
+             for x in outputs
+            ][0])
 
-        count_correct = (preds == labels).sum().item()
-        total_counts = labels.size(0)
-        preds = preds.cpu().numpy()
-        labels = labels.cpu().numpy()
         accuracy = accuracy_score(labels, preds)
-        precision = precision_score(labels, preds, average="macro")
-        recall = recall_score(labels, preds, average="macro")
-        f1 = f1_score(labels, preds, average="macro")
+        sampled_precision = precision_score(labels, preds, average="samples")
+        sampled_recall = recall_score(labels, preds, average="samples")
+        sampled_f1 = f1_score(labels, preds, average="samples")
+        per_class_precision = precision_score(labels, preds, average=None)
+        per_class_recall = recall_score(labels, preds, average=None)
+        per_class_f1 = f1_score(labels, preds, average=None)
 
         self.log(f"{_type}/accuracy", accuracy, prog_bar=True)
-        self.log(f"{_type}/precision", precision, prog_bar=True)
-        self.log(f"{_type}/recall", recall, prog_bar=True)
-        self.log(f"{_type}/f1", f1, prog_bar=True)
-        self.log(f"{_type}/count_correct", count_correct, prog_bar=True)
-        self.log(f"{_type}/total_counts", total_counts, prog_bar=True)
+        self.log(f"{_type}/sampled_precision", sampled_precision, prog_bar=True)
+        self.log(f"{_type}/sampled_recall", sampled_recall, prog_bar=True)
+        self.log(f"{_type}/sampled_f1", sampled_f1, prog_bar=True)
+        for i, (class_precision, class_recall, class_f1) in enumerate(
+                zip(per_class_precision, per_class_recall, per_class_f1)
+        ):
+            self.log(f"{_type}/precision/{i}", class_precision, prog_bar=True)
+            self.log(f"{_type}/recall/{i}", class_recall, prog_bar=True)
+            self.log(f"{_type}/f1/{i}", class_f1, prog_bar=True)
 
         self.log(f"{_type}/loss", loss, prog_bar=True)
 
         if _type == 'validation':
             self.log('val_loss', loss, prog_bar=True)
 
-    def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        # similar to the training step but stop on output of EOS token
+    def _single_step(self, batch, batch_idx) -> STEP_OUTPUT:
         y = batch["labels"]
         outputs = self(batch)
         _, logits = outputs[0], outputs[1]
 
-        loss = self.loss_fct(
+        loss = self.loss_fn(
             logits.view(-1, self.num_labels),
             y.float().view(-1, self.num_labels)) \
             if len(y) is not None else 0
-        preds = torch.where(logits.sigmoid(dim=1) > self.label_threshold, 1, 0)
+
+        batch_size = y.size(0)
+        preds = [
+            torch.nonzero(logits[i].sigmoid() > self.label_threshold).squeeze()
+            for i in range(batch_size)
+        ]
 
         return {
             "loss": loss,
             "preds": preds,
             "labels": y
         }
+
+    def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        return self._single_step(batch, batch_idx)
 
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         return self._epoch_end("validation", outputs)
 
     def test_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        # similar to the training step but stop on output of EOS token
-        y = batch["labels"]
-        outputs = self(batch)
-        loss, logits = outputs[0], outputs[1]
-        preds = logits.argmax(dim=1)
-
-        return {
-            "loss": loss,
-            "preds": preds,
-            "labels": y
-        }
+        return self._single_step(batch, batch_idx)
 
     def test_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]):
         return self._epoch_end(f"validation_unseen", outputs)
@@ -161,13 +158,14 @@ class TextMultiLabelClassificationModel(pl.LightningModule):
             },
         ]
         optimizer = AdamW(optimizer_grouped_parameters, lr=self.hparams.learning_rate, eps=self.hparams.adam_epsilon)
-        scheduler = get_linear_schedule_with_warmup(
+        linear_scheduler = get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=self.hparams.warmup_steps,
             num_training_steps=self.total_steps
         )
         scheduler = {
-            "scheduler": scheduler,
+            "scheduler": linear_scheduler,
             "interval": "step",
             "frequency": 1
         }
+        return [optimizer], [scheduler]

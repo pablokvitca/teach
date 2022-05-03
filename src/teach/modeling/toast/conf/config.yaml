@@ -115,7 +115,7 @@ trainer:
   val_check_interval: 1
 datamodule:
   num_workers: 1
-  batch_size: 16
+  batch_size: 8
   validation_batch_size: 1
   use_small_dataset: False
   save_data_preprocessing: False

@@ -5,7 +5,8 @@ import re
 from collections import Counter
 
 import unicodedata
-from typing import Optional, Tuple, List
+from dataclasses import dataclass
+from typing import Optional, Tuple, List, Union, Dict, Any
 
 import torch
 from pytorch_lightning import LightningDataModule
@@ -14,10 +15,11 @@ from torch.nn.functional import one_hot
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset, DataLoader
 from tqdm import trange
+from transformers.utils import PaddingStrategy
 
 from teach.logger import create_logger
 from teach.modeling.toast.Lang import Lang
-from transformers import AutoTokenizer, DataCollatorWithPadding
+from transformers import AutoTokenizer, DataCollatorWithPadding, PreTrainedTokenizerBase
 
 logger = create_logger(__name__, level=logging.INFO)
 
@@ -126,7 +128,6 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                         for task_id, task_name, task_desc in game_tasks:
                             self.known_tasks[task_id] += 1
                             if task_id not in self.task_id_2_class_id:
-                                task_name = task_data["task_name"]
                                 self.task_id_2_name[task_id] = task_name
                                 class_id = len(self.task_id_2_class_id)
                                 self.task_id_2_class_id[task_id] = class_id
@@ -169,7 +170,6 @@ class TaskFromDialogueHistoryTEACHDataset(Dataset):
                     for task_id, task_name, task_desc in game_tasks:
                         self.known_tasks[task_id] += 1
                         if task_id not in self.task_id_2_class_id:
-                            task_name = task_data["task_name"]
                             self.task_id_2_name[task_id] = task_name
                             class_id = len(self.task_id_2_class_id)
                             self.task_id_2_class_id[task_id] = class_id
@@ -242,13 +242,32 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
         self.insert_pad_token = insert_pad_token
         if insert_pad_token:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-        self.data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer, padding='max_length')
 
         self.num_labels = -1
         self.class_id_2_task_id = None
         self.task_id_2_class_id = None
 
         self.num_workers = num_workers
+
+        self._single_label_data_collator = None
+        self._multi_label_data_collator = None
+
+    def get_data_collator(self):
+        if self.use_main_task_only:
+            if self._single_label_data_collator is None:
+                self._single_label_data_collator = DataCollatorWithPadding(
+                    tokenizer=self.tokenizer,
+                    padding='max_length',
+                )
+            return self._single_label_data_collator
+        else:
+            if self._multi_label_data_collator is None:
+                self._multi_label_data_collator = MultiLabelDataCollatorWithPadding(
+                    tokenizer=self.tokenizer,
+                    padding='max_length',
+                    max_length=self.num_labels,
+                )
+            return self._multi_label_data_collator
 
     def prepare_data(self):
         AutoTokenizer.from_pretrained(self.pretrained_transformer_name, use_fast=True)
@@ -294,7 +313,7 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
             dataset,
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
-            collate_fn=self.data_collator,
+            collate_fn=self.get_data_collator(),
         )
 
     def train_dataloader(self):
@@ -321,3 +340,35 @@ class TaskFromDialogueHistoryDataModule(LightningDataModule):
         if self.test_unseen_dataset is None:
             raise ValueError("test unseen dataset is not loaded")
         return self._get_dataloader(self.test_unseen_dataset)
+
+
+@dataclass
+class MultiLabelDataCollatorWithPadding:
+
+    tokenizer: PreTrainedTokenizerBase
+    padding: Union[bool, str, PaddingStrategy] = True
+    max_length: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    return_tensors: str = "pt"
+
+    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        labels = [f.pop("labels") for f in features]
+        labels = [
+            Tensor(label + [-1] * (self.max_length - len(label)))
+            for label in labels
+        ]
+        batch = self.tokenizer.pad(
+            features,
+            padding=True,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+        batch["labels"] = pad_sequence(labels, batch_first=True, padding_value=-1)
+        if "label" in batch:
+            batch["labels"] = batch["label"]
+            del batch["label"]
+        if "label_ids" in batch:
+            batch["labels"] = batch["label_ids"]
+            del batch["label_ids"]
+        return batch

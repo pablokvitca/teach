@@ -13,7 +13,7 @@ from tqdm import trange
 from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
-from teach.modeling.ET.alfred.nn.transforms import Transforms
+from teach.modeling.et.alfred.nn.transforms import Transforms
 from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, encode_as_word_vectors
 
 logger = create_logger(__name__, level=logging.INFO)

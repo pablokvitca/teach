@@ -8,6 +8,8 @@ from pytorch_lightning.accelerators import GPUAccelerator
 from pytorch_lightning.callbacks import ModelCheckpoint
 from typing import Union
 
+from torch.cuda import is_available
+
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
 from teach.modeling.toast.GRUTextOnlyModel import GRUTextOnlyModel
@@ -330,14 +332,14 @@ def main(cfg: DictConfig) -> None:
 
     devices = cfg.trainer.devices
     if cfg.trainer.acc_device == 'gpu':
-        if GPUAccelerator.is_available():
+        if is_available():
             if isinstance(devices, str):
                 devices = [int(d) for d in devices.split(',')]
         else:
             devices = cfg.trainer.fallback_devices
 
     trainer = Trainer(
-        accelerator=cfg.trainer.acc_device if GPUAccelerator.is_available() else 'cpu',
+        accelerator=cfg.trainer.acc_device if is_available() else 'cpu',
         devices=devices,
         auto_lr_find=cfg.trainer.auto_lr_find and cfg[cfg.model_type].auto_lr_find,
         track_grad_norm=cfg.trainer.track_grad_norm,
