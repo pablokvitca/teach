@@ -145,6 +145,9 @@ class GRUTextOnlyModel(pl.LightningModule):
 
         predicted = [[self.output_lang.index2word[i.item()] for i in output[b] if i != self.output_lang.PAD_token_index] + [self.output_lang.EOS_token] for b in range(len(output))]
         reference = [[[self.output_lang.index2word[y_token.item()] for y_token in y[i]]] for i in range(y.size(0))]
+
+        self.log(f"training_step_loss", loss, prog_bar=True)
+
         return {
             "predicted": predicted,
             "reference": reference,
@@ -208,16 +211,19 @@ class GRUTextOnlyModel(pl.LightningModule):
         return self._inf_step(batch, batch_idx)
 
     def _epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]], split: str) -> None:
-        loss = torch.stack([output["loss"] for output in outputs]).mean()
-        self.log(f"{split}/loss", loss)
-        if split == "validation":
-            self.log(f"val_loss", loss, prog_bar=True)
+        try:
+            loss = torch.stack([output["loss"] for output in outputs]).mean()
+            self.log(f"{split}/loss", loss)
+            if split == "validation":
+                self.log(f"val_loss", loss, prog_bar=True)
 
-        if split != "train":
-            predicted = list(chain(*[output["predicted"] for output in outputs]))
-            reference = list(chain(*[output["reference"] for output in outputs]))
-            bleu = bleu_score(predicted, reference)
-            self.log(f"{split}/bleu_score", bleu, prog_bar=True)
+            if split != "train":
+                predicted = list(chain(*[output["predicted"] for output in outputs]))
+                reference = list(chain(*[output["reference"] for output in outputs]))
+                bleu = bleu_score(predicted, reference)
+                self.log(f"{split}/bleu_score", bleu, prog_bar=True)
+        except:
+            pass
 
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
         return self._epoch_end(outputs[0], "train")
