@@ -219,7 +219,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         self.log(f"{split}/bleu_score", bleu, prog_bar=True)
 
     def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
-        return self._epoch_end(outputs, "train")
+        return self._epoch_end(outputs[0], "train")
 
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]) -> None:
         return self._epoch_end(outputs, "validation")
