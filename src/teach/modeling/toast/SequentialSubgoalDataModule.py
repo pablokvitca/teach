@@ -70,7 +70,7 @@ class SequentialTEACHSubgoalDataset(Dataset):
 
     @staticmethod
     def _tensor_from_sentence(lang, token_list):
-        indexes = [lang.word2index[word] for word in token_list]
+        indexes = [lang.word2index[word.lower()] for word in token_list]
         indexes.append(lang.EOS_token_index)
         return torch.tensor(indexes, dtype=torch.long).view(-1, 1)
 

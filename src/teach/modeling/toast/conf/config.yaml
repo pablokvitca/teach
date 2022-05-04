@@ -1,4 +1,4 @@
-model_type: task_from_text_multi_game
+model_type: gru_text_subgoal
 known_model_data_types:
   naive
   gru_text
@@ -124,5 +124,5 @@ wandb:
   project: toast
   offline: False
   group_name: task_from_text_single
-  log_model: False
+  log_model: True
   entity: 'nlp4robots-toast'

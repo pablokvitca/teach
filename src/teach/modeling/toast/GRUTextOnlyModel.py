@@ -1,9 +1,12 @@
+from itertools import chain
+
 import torch
-from pytorch_lightning.utilities.types import STEP_OUTPUT
+from pytorch_lightning.utilities.types import STEP_OUTPUT, EPOCH_OUTPUT
 from torch import nn, Tensor
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.optim import Adam
+from typing import Union, List
 
 from teach.logger import create_logger
 from teach.modeling.toast.Lang import Lang
@@ -108,6 +111,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         x_text = x
         pre_encoder_output, pre_decoder_output = None, None
         loss = torch.zeros(1, device=self.device)
+        output = []
         for y_token_idx in range(y.size(1)):
             y_token = y[:, y_token_idx]
             if y_token.dim() == 0:
@@ -126,22 +130,28 @@ class GRUTextOnlyModel(pl.LightningModule):
                 decoder_output,
                 F.one_hot(y_token, num_classes=self.output_lang.n_words).to(device=self.device, dtype=torch.float).squeeze(dim=1)
             )
-
+            decoder_input = decoder_output.topk(1)[1].squeeze().detach()
+            output.append(decoder_input)
             if self.teacher_forcing:
                 decoder_input = y_token
             else:
                 # TODO: fix batch > 1 will fail if not using teacher forcing
-                decoder_input = decoder_output.topk(1)[1].squeeze().detach()
+
                 if decoder_input.item() == self.output_lang.EOS_token_index:
                     break
             pre_decoder_output = (decoder_input, decoder_hidden)
 
         loss = loss.squeeze()
-        self.log("train_loss", loss, batch_size=y.size(0))
 
-        return loss
+        predicted = [[self.output_lang.index2word[i.item()] for i in output[b] if i != self.output_lang.PAD_token_index] + [self.output_lang.EOS_token] for b in range(len(output))]
+        reference = [[[self.output_lang.index2word[y_token.item()] for y_token in y[i]]] for i in range(y.size(0))]
+        return {
+            "predicted": predicted,
+            "reference": reference,
+            "loss": loss
+        }
 
-    def validation_step(self, batch, batch_idx):
+    def _inf_step(self, batch, batch_idx) -> STEP_OUTPUT:
         # similar to the training step but stop on output of EOS token
         x, y = batch[0]
         x_text = x
@@ -150,6 +160,7 @@ class GRUTextOnlyModel(pl.LightningModule):
         did_output_eos = False
         y_token_idx = 0
         max_output_length = min(self.max_output_length, y.size(0) + self.output_length_delta)
+        output = []
         while not did_output_eos and y_token_idx < max_output_length:
             y_token = y[:, y_token_idx] if y_token_idx < y.size(1) else \
                 torch.Tensor([self.output_lang.EOS_token_index]).to(device=self.device, dtype=torch.long).unsqueeze(0)
@@ -173,17 +184,48 @@ class GRUTextOnlyModel(pl.LightningModule):
 
             decoder_input = decoder_output.topk(1)[1].squeeze().detach()
 
-            if decoder_input.item() == self.output_lang.EOS_token_index:
+            decoder_token = decoder_input.item()
+            output.append(decoder_token)
+            if decoder_token == self.output_lang.EOS_token_index:
                 did_output_eos = True
 
             pre_decoder_output = (decoder_input, decoder_hidden)
         loss = loss.squeeze()
 
-        # TODO: How to get text translated predicted and reference for Bleu score, cannot use numbers.
+        predicted = [[self.output_lang.index2word[i] for i in output if i != self.output_lang.PAD_token_index] + [self.output_lang.EOS_token]]
+        reference = [[[self.output_lang.index2word[y_token.item()] for y_token in y[i]]] for i in range(y.size(0))]
+
+        return {
+            "predicted": predicted,
+            "reference": reference,
+            "loss": loss
+        }
+
+    def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        return self._inf_step(batch, batch_idx)
+
+    def test_step(self, batch, batch_idx) -> STEP_OUTPUT:
+        return self._inf_step(batch, batch_idx)
+
+    def _epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]], split: str) -> None:
+        loss = torch.stack([output["loss"] for output in outputs]).mean()
+        self.log(f"{split}/loss", loss)
+        if split == "validation":
+            self.log(f"val_loss", loss, prog_bar=True)
+
+        predicted = list(chain(*[output["predicted"] for output in outputs]))
+        reference = list(chain(*[output["reference"] for output in outputs]))
         bleu = bleu_score(predicted, reference)
-        self.log("bleu_score", bleu, batch_size=y.size(0))
-        self.log("val_loss", loss, batch_size=y.size(0))
-        return loss
+        self.log(f"{split}/bleu_score", bleu, prog_bar=True)
+
+    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+        return self._epoch_end(outputs, "train")
+
+    def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]) -> None:
+        return self._epoch_end(outputs, "validation")
+
+    def test_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]) -> None:
+        return self._epoch_end(outputs, "validation_unseen")
 
     def configure_optimizers(self):
         if self.use_single_optimizer:
