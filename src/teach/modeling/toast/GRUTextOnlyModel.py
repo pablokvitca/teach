@@ -213,13 +213,14 @@ class GRUTextOnlyModel(pl.LightningModule):
         if split == "validation":
             self.log(f"val_loss", loss, prog_bar=True)
 
-        predicted = list(chain(*[output["predicted"] for output in outputs]))
-        reference = list(chain(*[output["reference"] for output in outputs]))
-        bleu = bleu_score(predicted, reference)
-        self.log(f"{split}/bleu_score", bleu, prog_bar=True)
+        if split != "train":
+            predicted = list(chain(*[output["predicted"] for output in outputs]))
+            reference = list(chain(*[output["reference"] for output in outputs]))
+            bleu = bleu_score(predicted, reference)
+            self.log(f"{split}/bleu_score", bleu, prog_bar=True)
 
-    def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
-        return self._epoch_end(outputs[0], "train")
+    # def training_epoch_end(self, outputs: EPOCH_OUTPUT) -> None:
+    #     return self._epoch_end(outputs[0], "train")
 
     def validation_epoch_end(self, outputs: Union[EPOCH_OUTPUT, List[EPOCH_OUTPUT]]) -> None:
         return self._epoch_end(outputs, "validation")
