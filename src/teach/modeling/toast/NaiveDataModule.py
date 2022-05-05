@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from json import JSONDecodeError
 from typing import Optional
 
 import torch
@@ -13,7 +14,7 @@ from tqdm import trange
 from teach.dataset.definitions import Definitions
 from teach.inference.actions import all_agent_actions
 from teach.logger import create_logger
-from teach.modeling.et.alfred.nn.transforms import Transforms
+from teach.modeling.ET.alfred.nn.transforms import Transforms
 from teach.modeling.toast.utils import get_text_tokens_from_instance, pad_list, encode_as_word_vectors
 
 logger = create_logger(__name__, level=logging.INFO)
@@ -94,47 +95,62 @@ class NaiveTEACHDataset(Dataset):
         data = []
         for i in trange(len(files)):
             file = files[i]
-            with open(os.path.join(edh_dir, file)) as f:
-                edh_instance = json.load(f)
-                if self.include_x_test:
-                    text_from_instance = get_text_tokens_from_instance(edh_instance)
-                    text_from_instance = pad_list(text_from_instance, self.x_text_pad_length)
-                    instance_text_encoded = encode_as_word_vectors(self.w2v_model, text_from_instance)
+            if not file.startswith("."):
+                path = os.path.join(edh_dir, file)
+                try:
+                    with open(path) as f:
+                        edh_instance = json.load(f)
+                        if self.include_x_test:
+                            text_from_instance = get_text_tokens_from_instance(edh_instance)
+                            text_from_instance = pad_list(text_from_instance, self.x_text_pad_length)
+                            instance_text_encoded = encode_as_word_vectors(self.w2v_model, text_from_instance)
 
-                prev_actions = []
-                observed_actions = 0
-                action_history, image_history = edh_instance["driver_action_history"], edh_instance["driver_image_history"]
-                action_future = edh_instance["driver_actions_future"]
-                for idx, (action, img_filename) in enumerate(zip(action_history, image_history)):
-                    if action["action_name"] in self.all_agent_actions:
-                        next_action = self.get_next_action(action_history, action_future, idx)
-                        if next_action is not None:
-                            y = self.action_id_to_one_hot(next_action["action_id"])
+                        prev_actions = []
+                        observed_actions = 0
+                        action_history, image_history = edh_instance["driver_action_history"], edh_instance["driver_image_history"]
+                        action_future = edh_instance["driver_actions_future"]
+                        for idx, (action, img_filename) in enumerate(zip(action_history, image_history)):
+                            if action["action_name"] in self.all_agent_actions:
+                                next_action = self.get_next_action(action_history, action_future, idx)
+                                if next_action is not None:
+                                    y = self.action_id_to_one_hot(next_action["action_id"])
 
-                            if self.include_x_cur_image:
-                                instance_image = os.path.join(edh_instance["game_id"], img_filename)
-                            if self.include_x_prev_actions:
-                                action_onehot = self.action_id_to_one_hot(action['action_id'])
-                                prev_actions.append(action_onehot)
-                                observed_actions += 1
-                                instance_prev_actions = self.prev_actions_list_to_matrix(prev_actions)
+                                    x = {}
+                                    if self.include_x_test:
+                                        x["text"] = instance_text_encoded
 
-                            x = {
-                                "text": instance_text_encoded,
-                                "cur_image": instance_image,
-                                "prev_actions": instance_prev_actions
-                            }
+                                    if self.include_x_cur_image:
+                                        instance_image = os.path.join(edh_instance["game_id"], img_filename)
+                                        x["cur_image"] = instance_image
+                                    if self.include_x_prev_actions:
+                                        action_onehot = self.action_id_to_one_hot(action['action_id'])
+                                        prev_actions.append(action_onehot)
+                                        observed_actions += 1
+                                        instance_prev_actions = self.prev_actions_list_to_matrix(prev_actions)
+                                        x["prev_actions"] = instance_prev_actions
 
-                            data.append((x, y))
+                                    data.append((x, y))
+                except JSONDecodeError as err:
+                    logger.error(f"ERROR1 IN FILE: {path} -> {err}")
+                except ValueError as err:
+                    logger.error(f"ERROR2 IN FILE: {path} -> {err}")
+                except Exception as err:
+                    logger.error(f"ERROR2 IN FILE: {path} -> {err}")
         return data
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx: int):
-        x, y = self.data[idx]
-        x_cur_img = self.load_img(x["cur_image"])
-        return {"text": x["text"], "cur_image": x_cur_img, "prev_actions": x["prev_actions"]}, y
+        _x, y = self.data[idx]
+        x = {}
+        if self.include_x_test:
+            x["text"] = _x["text"]
+        if self.include_x_cur_image:
+            x["cur_image"] = x_cur_img = self.load_img(x["cur_image"])
+        if self.include_x_prev_actions:
+            x["prev_actions"] = _x["prev_actions"]
+        return x, y
 
 
 class NaiveDataModule(LightningDataModule):

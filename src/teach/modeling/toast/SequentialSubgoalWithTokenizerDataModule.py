@@ -18,7 +18,7 @@ from teach.modeling.toast.Lang import Lang
 logger = create_logger(__name__, level=logging.INFO)
 
 
-class SequentialTEACHSubgoalDataset(Dataset):
+class SequentialTEACHSubgoalWithTokenizerDataset(Dataset):
     def __init__(
             self,
             data_dir: str,
@@ -75,10 +75,10 @@ class SequentialTEACHSubgoalDataset(Dataset):
         return torch.tensor(indexes, dtype=torch.long).view(-1, 1)
 
     def tensorize_input_language(self, token_list):
-        return SequentialTEACHSubgoalDataset._tensor_from_sentence(self.input_lang, token_list)
+        return SequentialTEACHSubgoalWithTokenizerDataset._tensor_from_sentence(self.input_lang, token_list)
 
     def tensorize_subgoal_language(self, token_list):
-        return SequentialTEACHSubgoalDataset._tensor_from_sentence(self.output_lang, token_list)
+        return SequentialTEACHSubgoalWithTokenizerDataset._tensor_from_sentence(self.output_lang, token_list)
 
     def get_text_tokens_from_instance(self, edh_instance):
         tokens_list = []
@@ -86,9 +86,9 @@ class SequentialTEACHSubgoalDataset(Dataset):
         for dialog_part in cleaned_dialog:
             speaker, utterance = dialog_part
             if speaker == "Commander" and self.use_commander_language:
-                tokens_list.extend(SequentialTEACHSubgoalDataset.normalize_string(utterance).split(" "))
+                tokens_list.extend(SequentialTEACHSubgoalWithTokenizerDataset.normalize_string(utterance).split(" "))
             elif speaker == "Driver" and self.use_follower_language:
-                tokens_list.extend(SequentialTEACHSubgoalDataset.normalize_string(utterance).split(" "))
+                tokens_list.extend(SequentialTEACHSubgoalWithTokenizerDataset.normalize_string(utterance).split(" "))
         return tokens_list
 
     def _load_data(self):
@@ -192,7 +192,7 @@ class SequentialSubgoalDataModule(LightningDataModule):
         return batch, (x_lengths, y_lengths), (x_mask, y_mask)
 
     def load_dataset(self, split_name, extend_language=False) -> Dataset:
-        dataset = SequentialTEACHSubgoalDataset(
+        dataset = SequentialTEACHSubgoalWithTokenizerDataset(
             self.data_dir,
             split_name,
             self.include_x_text,
